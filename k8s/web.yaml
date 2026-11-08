@@ -1,0 +1,40 @@
+# React static site served by nginx. /api is proxied to the rex-api Service (the Ingress also routes /api directly).
+apiVersion: v1
+kind: Service
+metadata:
+  name: rex-web
+spec:
+  selector:
+    app: rex-web
+  ports:
+    - port: 80
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rex-web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rex-web
+  template:
+    metadata:
+      labels:
+        app: rex-web
+    spec:
+      containers:
+        - name: web
+          image: rex-crm-web
+          ports:
+            - containerPort: 8080
+          env:
+            - name: API_UPSTREAM
+              value: rex-api:80
+          readinessProbe:
+            httpGet: { path: /, port: 8080 }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 20m, memory: 32Mi }
+            limits: { memory: 128Mi }

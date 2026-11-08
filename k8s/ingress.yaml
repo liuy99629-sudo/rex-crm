@@ -1,0 +1,39 @@
+# GKE external HTTP(S) load balancer ("Ingress" box in the diagram).
+# Before applying: reserve a global static IP and (optionally) set a hostname + managed certificate:
+#   gcloud compute addresses create rex-crm-ip --global
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rex-crm
+  annotations:
+    kubernetes.io/ingress.class: gce
+    kubernetes.io/ingress.global-static-ip-name: rex-crm-ip
+    # Uncomment once DNS points at the static IP (see ManagedCertificate below):
+    # networking.gke.io/managed-certificates: rex-crm-cert
+    # kubernetes.io/ingress.allow-http: "false"
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: rex-api
+                port:
+                  number: 80
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: rex-web
+                port:
+                  number: 80
+---
+# apiVersion: networking.gke.io/v1
+# kind: ManagedCertificate
+# metadata:
+#   name: rex-crm-cert
+# spec:
+#   domains:
+#     - crm.example.com

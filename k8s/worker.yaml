@@ -1,0 +1,31 @@
+# Queue worker: same image as the API, different command. Scale `replicas` for more throughput.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rex-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rex-worker
+  template:
+    metadata:
+      labels:
+        app: rex-worker
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: worker
+          image: rex-crm-api
+          command: ["php", "/var/www/html/artisan", "queue:work", "--sleep=1", "--tries=3", "--max-time=3600"]
+          envFrom:
+            - configMapRef:
+                name: rex-crm-config
+            - secretRef:
+                name: rex-crm-secrets
+          env:
+            - name: AUTORUN_ENABLED
+              value: "false"
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 384Mi }

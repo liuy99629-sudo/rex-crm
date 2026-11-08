@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "bmewburn.vscode-intelephense-client",
+    "ms-azuretools.vscode-docker",
+    "ms-kubernetes-tools.vscode-kubernetes-tools",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "anthropic.claude-code"
+  ]
+}

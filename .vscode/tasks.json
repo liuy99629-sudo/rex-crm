@@ -1,0 +1,11 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "Stack: up (build)", "type": "shell", "command": "docker compose up --build", "problemMatcher": [] },
+    { "label": "Stack: down", "type": "shell", "command": "docker compose down", "problemMatcher": [] },
+    { "label": "Seed demo data", "type": "shell", "command": "docker compose exec api php artisan db:seed", "problemMatcher": [] },
+    { "label": "Frontend: dev server", "type": "shell", "command": "npm run dev", "options": { "cwd": "${workspaceFolder}/frontend" }, "problemMatcher": [] },
+    { "label": "Frontend: test", "type": "shell", "command": "npm test", "options": { "cwd": "${workspaceFolder}/frontend" }, "problemMatcher": [] },
+    { "label": "Backend: test", "type": "shell", "command": "docker compose --profile test run --rm test", "problemMatcher": [] }
+  ]
+}

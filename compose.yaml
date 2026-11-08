@@ -1,0 +1,110 @@
+# Rex CRM local stack:  docker compose up --build
+#   web    -> http://localhost:8080   (React, proxies /api to the API)
+#   api    -> http://localhost:8000   (Laravel, direct access for curl / Postman)
+name: rex-crm
+
+x-api-env: &api-env
+  APP_NAME: "Rex CRM"
+  APP_ENV: local
+  APP_DEBUG: "true"
+  # Development-only key. Generate your own for anything shared: docker compose run --rm api php artisan key:generate --show
+  APP_KEY: ${APP_KEY:-base64:wqhgINpZ/C4hO71TS3sU7FXPIJKloCDVW8hps8FiJlc=}
+  APP_URL: http://localhost:8080
+  LOG_CHANNEL: stderr
+  DB_CONNECTION: pgsql
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_DATABASE: rexcrm
+  DB_USERNAME: rexcrm
+  DB_PASSWORD: ${DB_PASSWORD:-secret}
+  REDIS_CLIENT: predis
+  REDIS_HOST: redis
+  CACHE_STORE: redis
+  QUEUE_CONNECTION: redis
+  SESSION_DRIVER: array
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: rexcrm
+      POSTGRES_USER: rexcrm
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rexcrm -d rexcrm"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+      # Without a target Docker builds the last stage (test), which runs the test suite instead of serving.
+      target: app
+    image: rex-crm-api:local
+    environment:
+      <<: *api-env
+      # Run migrations on start (isolated = safe with several replicas).
+      AUTORUN_ENABLED: "true"
+      AUTORUN_LARAVEL_MIGRATION_ISOLATED: "true"
+      AUTORUN_LARAVEL_STORAGE_LINK: "false"
+    ports:
+      - "8000:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1:8080/api/health') === false ? 1 : 0);"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  # Same image as the API, different command: this is the "Queue Worker" box in the architecture diagram.
+  worker:
+    image: rex-crm-api:local
+    command: ["php", "/var/www/html/artisan", "queue:work", "--sleep=1", "--tries=3", "--max-time=3600", "-v"]
+    environment:
+      <<: *api-env
+      AUTORUN_ENABLED: "false"
+    # The image's built-in healthcheck curls nginx, which does not run in the worker.
+    healthcheck:
+      disable: true
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # Backend test suite (SQLite in memory, needs no other service):  docker compose --profile test run --rm test
+  test:
+    profiles: ["test"]
+    build:
+      context: ./backend
+      target: test
+
+  web:
+    build: ./frontend
+    image: rex-crm-web:local
+    environment:
+      API_UPSTREAM: api:8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:

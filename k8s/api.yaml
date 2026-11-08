@@ -1,0 +1,58 @@
+# Laravel API (nginx + php-fpm). The image tag is set by CI through kustomize `images:`.
+apiVersion: v1
+kind: Service
+metadata:
+  name: rex-api
+spec:
+  selector:
+    app: rex-api
+  ports:
+    - port: 80
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rex-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rex-api
+  template:
+    metadata:
+      labels:
+        app: rex-api
+    spec:
+      containers:
+        - name: api
+          image: rex-crm-api
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: rex-crm-config
+            - secretRef:
+                name: rex-crm-secrets
+          env:
+            # Run `php artisan migrate --isolated` on container start (lock via Redis, safe with 2 replicas).
+            - name: AUTORUN_ENABLED
+              value: "true"
+            - name: AUTORUN_LARAVEL_MIGRATION_ISOLATED
+              value: "true"
+            - name: AUTORUN_LARAVEL_STORAGE_LINK
+              value: "false"
+          startupProbe:
+            httpGet: { path: /api/health, port: 8080 }
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet: { path: /api/health, port: 8080 }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /up, port: 8080 }
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests: { cpu: 100m, memory: 192Mi }
+            limits: { memory: 512Mi }
