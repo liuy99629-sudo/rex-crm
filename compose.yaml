@@ -78,6 +78,8 @@ services:
   worker:
     image: rex-crm-api:local
     command: ["php", "/var/www/html/artisan", "queue:work", "--sleep=1", "--tries=3", "--max-time=3600", "-v"]
+    # queue:work exits cleanly after --max-time (frees memory); restart it so the queue keeps draining.
+    restart: unless-stopped
     environment:
       <<: *api-env
       AUTORUN_ENABLED: "false"
