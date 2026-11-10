@@ -222,6 +222,11 @@ function DealDetail({ dealId, onClose, onChanged }: { dealId: number; onClose: (
     },
   })
 
+  const deleteNote = useMutation({
+    mutationFn: (activityId: number) => dealsApi.deleteNote(dealId, activityId),
+    onSuccess: reload,
+  })
+
   const remove = useMutation({
     mutationFn: () => dealsApi.remove(dealId),
     onSuccess: () => {
@@ -234,7 +239,7 @@ function DealDetail({ dealId, onClose, onChanged }: { dealId: number; onClose: (
 
   return (
     <Modal title={d?.title ?? 'Deal'} onClose={onClose} wide>
-      <ErrorBox error={deal.error ?? setStage.error ?? addNote.error ?? remove.error} />
+      <ErrorBox error={deal.error ?? setStage.error ?? addNote.error ?? deleteNote.error ?? remove.error} />
       {deal.isLoading && <p className="muted">Loading...</p>}
       {d && (
         <div className="deal-detail">
@@ -292,6 +297,20 @@ function DealDetail({ dealId, onClose, onChanged }: { dealId: number; onClose: (
                 <div>{a.body}</div>
                 <div className="muted small">
                   {a.user?.name ?? 'System'} &middot; {formatDateTime(a.created_at)}
+                  {a.type === 'note' && (
+                    <>
+                      {' '}
+                      &middot;{' '}
+                      <button
+                        type="button"
+                        className="link-danger"
+                        onClick={() => window.confirm('Delete this note?') && deleteNote.mutate(a.id)}
+                        disabled={deleteNote.isPending}
+                      >
+                        Delete
+                      </button>
+                    </>
+                  )}
                 </div>
               </li>
             ))}

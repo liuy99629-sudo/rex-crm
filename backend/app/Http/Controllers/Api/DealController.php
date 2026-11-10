@@ -8,6 +8,7 @@ use App\Http\Resources\DealActivityResource;
 use App\Http\Resources\DealResource;
 use App\Jobs\RecordDealStageChange;
 use App\Models\Deal;
+use App\Models\DealActivity;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -116,5 +117,15 @@ class DealController extends Controller
         return (new DealActivityResource($activity->load('user:id,name')))
             ->response()
             ->setStatusCode(201);
+    }
+
+    /** Delete a note. Stage-change entries are the deal's history and stay. */
+    public function deleteNote(Deal $deal, DealActivity $activity): JsonResponse
+    {
+        abort_unless($activity->type === 'note', 403, 'Only notes can be deleted.');
+
+        $activity->delete();
+
+        return response()->json(null, 204);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\PropertyStatus;
 use App\Enums\PropertyType;
+use App\Services\PipelineService;
 use Database\Factories\PropertyFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -30,6 +31,16 @@ class Property extends Model
             'price' => 'integer',
             'listed_at' => 'date',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        // The dashboard counts active listings and the board shows property titles:
+        // drop the cached pipeline board / dashboard numbers on any change.
+        $flush = fn () => app(PipelineService::class)->flush();
+
+        static::saved($flush);
+        static::deleted($flush);
     }
 
     public function agent(): BelongsTo

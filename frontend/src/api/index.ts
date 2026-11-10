@@ -48,6 +48,7 @@ export const dealsApi = {
   remove: (id: number) => api<void>(`/deals/${id}`, { method: 'DELETE' }),
   setStage: (id: number, stage: DealStage) => api<Deal>(`/deals/${id}/stage`, { method: 'PATCH', body: { stage } }),
   addNote: (id: number, body: string) => api<DealActivity>(`/deals/${id}/notes`, { method: 'POST', body: { body } }),
+  deleteNote: (id: number, activityId: number) => api<void>(`/deals/${id}/notes/${activityId}`, { method: 'DELETE' }),
 }
 
 export const pipelineApi = {
