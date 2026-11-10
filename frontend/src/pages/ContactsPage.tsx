@@ -5,6 +5,7 @@ import { ApiError } from '../api/client'
 import { CONTACT_TYPES, type Contact, type ContactInput, type ContactType } from '../api/types'
 import Modal from '../components/Modal'
 import { Badge, ErrorBox, Field, PageHeader, Pagination } from '../components/ui'
+import { useConfirm } from '../components/useConfirm'
 import { useDebounced } from '../components/useDebounced'
 import { formatBudget, toNumberOrNull, toStringOrNull } from '../lib/format'
 
@@ -15,6 +16,7 @@ export default function ContactsPage() {
   const [page, setPage] = useState(1)
   const [editing, setEditing] = useState<Contact | 'new' | null>(null)
   const q = useDebounced(search)
+  const { confirm, dialog } = useConfirm()
 
   const list = useQuery({
     queryKey: ['contacts', { q, type, page }],
@@ -100,7 +102,7 @@ export default function ContactsPage() {
                   </button>
                   <button
                     className="btn btn-danger"
-                    onClick={() => window.confirm(`Delete ${c.name}? Their deals will be deleted too.`) && remove.mutate(c.id)}
+                    onClick={() => confirm(`Delete ${c.name}? Their deals will be deleted too.`, () => remove.mutate(c.id))}
                   >
                     Delete
                   </button>
@@ -124,6 +126,7 @@ export default function ContactsPage() {
       )}
 
       {editing && <ContactForm contact={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+      {dialog}
     </>
   )
 }

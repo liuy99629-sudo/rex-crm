@@ -26,4 +26,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('deals', DealController::class);
     Route::patch('/deals/{deal}/stage', [DealController::class, 'updateStage']);
     Route::post('/deals/{deal}/notes', [DealController::class, 'addNote']);
+    Route::delete('/deals/{deal}/notes/{activity}', [DealController::class, 'deleteNote'])->scopeBindings();
 });
