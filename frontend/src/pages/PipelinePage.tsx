@@ -5,6 +5,7 @@ import { ApiError } from '../api/client'
 import { DEAL_STAGES, type Deal, type DealInput, type DealStage, type PipelineColumn } from '../api/types'
 import Modal from '../components/Modal'
 import { ErrorBox, Field, PageHeader } from '../components/ui'
+import { useConfirm } from '../components/useConfirm'
 import { formatCurrency, formatDate, formatDateTime, toNumberOrNull, toStringOrNull } from '../lib/format'
 import { moveDeal } from '../lib/pipeline'
 
@@ -197,6 +198,7 @@ function DealForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => vo
 function DealDetail({ dealId, onClose, onChanged }: { dealId: number; onClose: () => void; onChanged: () => void }) {
   const queryClient = useQueryClient()
   const [note, setNote] = useState('')
+  const { confirm, dialog } = useConfirm()
 
   const deal = useQuery({ queryKey: ['deal', dealId], queryFn: () => dealsApi.get(dealId) })
 
@@ -304,7 +306,7 @@ function DealDetail({ dealId, onClose, onChanged }: { dealId: number; onClose: (
                       <button
                         type="button"
                         className="link-danger"
-                        onClick={() => window.confirm('Delete this note?') && deleteNote.mutate(a.id)}
+                        onClick={() => confirm('Delete this note?', () => deleteNote.mutate(a.id))}
                         disabled={deleteNote.isPending}
                       >
                         Delete
@@ -320,7 +322,7 @@ function DealDetail({ dealId, onClose, onChanged }: { dealId: number; onClose: (
           <div className="form-actions">
             <button
               className="btn btn-danger"
-              onClick={() => window.confirm('Delete this deal?') && remove.mutate()}
+              onClick={() => confirm('Delete this deal?', () => remove.mutate())}
               disabled={remove.isPending}
             >
               Delete deal
@@ -328,6 +330,7 @@ function DealDetail({ dealId, onClose, onChanged }: { dealId: number; onClose: (
           </div>
         </div>
       )}
+      {dialog}
     </Modal>
   )
 }
