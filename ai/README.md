@@ -20,6 +20,34 @@ Browser ── /api/ai/* ──► FastAPI ──► LangGraph agent ──► C
 - **Data sent to Claude**: the question, the conversation so far, and the CRM rows the tools return
   (names, budgets, prices, notes). Embeddings are computed locally and never leave the cluster.
 
+## Buyer ↔ listing matching
+
+`GET /api/ai/matches/properties/{id}` (buyers for a listing) and `GET /api/ai/matches/contacts/{id}`
+(listings for a buyer or investor). Score out of 100 = 55% budget fit + 45% semantic fit:
+
+- **Budget fit**: within budget 1.0, up to 10% over 0.4 ("stretch"), more than 10% over is excluded,
+  a little under the minimum 0.7, far under 0.3, unknown 0.5.
+- **Semantic fit**: cosine similarity between the client's notes and the listing description, using
+  the embeddings already in pgvector (no extra model calls).
+- Clients who already lost a deal on the listing are left out; open deals are flagged.
+- Every match lists its reasons. The agent can also call it (tools `match_buyers_for_property`,
+  `match_listings_for_contact`).
+
+## Win probability (PyTorch)
+
+`GET /api/ai/deals/win-probability` scores every open deal. The model is a logistic regression
+(`torch.nn.Linear` + BCE) on 8 features: stage, days open, days since last activity, notes, days past
+expected close, budget fit, gap to asking price, and whether a listing is linked. Each score comes with
+the three features that move it most, e.g. "No activity for 31 days".
+
+Training data:
+1. A **simulated prior** (`scoring.simulate`) built from stated assumptions (`PRIOR_LOGIT`), so the
+   model works before the agency has history. These are assumptions, not measured facts.
+2. **Real closed deals**, weighted 20×. Each one is rebuilt as it stood when it closed, using the stage
+   it left from the CRM's logged stage changes. Deals closed without a logged stage change are skipped.
+
+The model retrains automatically when the number of real closed deals changes. Training takes well under a second.
+
 ## Run
 
 ```bash

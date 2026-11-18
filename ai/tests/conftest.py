@@ -70,6 +70,26 @@ class FakeCrm:
     async def pipeline_summary(self) -> list[dict[str, Any]]:
         return [{"stage": "lead", "deals": 3, "total_value": 3_000_000}]
 
+    # matching / scoring data (tests set these lists as needed)
+    listings: list[dict[str, Any]] = field(default_factory=list)
+    buyers: list[dict[str, Any]] = field(default_factory=list)
+    deals: list[dict[str, Any]] = field(default_factory=list)
+
+    async def get_property(self, property_id: int) -> dict[str, Any] | None:
+        return next((p for p in self.listings if p["id"] == property_id), None)
+
+    async def get_contact(self, contact_id: int) -> dict[str, Any] | None:
+        return next((c for c in self.buyers if c["id"] == contact_id), None)
+
+    async def buyer_candidates(self) -> list[dict[str, Any]]:
+        return self.buyers
+
+    async def listing_candidates(self) -> list[dict[str, Any]]:
+        return [p for p in self.listings if p["status"] in ("active", "under_offer", "draft")]
+
+    async def deal_rows(self) -> list[dict[str, Any]]:
+        return self.deals
+
 
 @pytest.fixture
 def crm() -> FakeCrm:

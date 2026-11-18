@@ -147,6 +147,32 @@ export interface AiAnswer {
   model_calls: number
 }
 
+export interface Match {
+  id: number
+  name: string
+  score: number // 0..100
+  budget_score: number
+  semantic_score: number
+  reasons: string[]
+  existing_deal: { deal_id: number; property_id: number; stage: DealStage } | null
+  detail: Record<string, string | number | null>
+}
+
+export interface MatchResult {
+  matches: Match[]
+}
+
+export interface WinScore {
+  deal_id: number
+  probability: number // 0..1
+  drivers: { label: string; effect: 'up' | 'down' }[]
+}
+
+export interface WinScores {
+  model: { type: string; trained_on: { simulated: number; real_closed_deals: number }; trained_at: string }
+  deals: WinScore[]
+}
+
 export interface Paginated<T> {
   data: T[]
   meta: { current_page: number; last_page: number; per_page: number; total: number }

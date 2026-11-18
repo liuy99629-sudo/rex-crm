@@ -16,6 +16,8 @@ from .auth import TokenVerifier
 from .crm import CrmRepository
 from .embeddings import Embedder
 from .indexer import sync_index
+from .matching import buyers_for_property, properties_for_contact
+from .scoring import WinModel, real_samples, score_open_deals, train
 from .store import VectorStore
 from .tools import ToolContext
 
@@ -113,6 +115,40 @@ def create_app(
     @app.post("/api/ai/reindex")
     async def reindex_endpoint(_: dict[str, Any] = Depends(current_user)) -> dict[str, int]:
         return await reindex()
+
+    @app.get("/api/ai/matches/properties/{property_id}")
+    async def property_matches(property_id: int, _: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
+        result = await buyers_for_property(services.crm, services.store, property_id)
+        if result is None:
+            raise HTTPException(404, "Property not found.")
+        return result
+
+    @app.get("/api/ai/matches/contacts/{contact_id}")
+    async def contact_matches(contact_id: int, _: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
+        result = await properties_for_contact(services.crm, services.store, contact_id)
+        if result is None:
+            raise HTTPException(404, "Contact not found.")
+        return result
+
+    win_model: dict[str, WinModel] = {}
+
+    async def current_model(rows: list[dict[str, Any]]) -> WinModel:
+        # Retrain when the set of real closed deals changes (training takes well under a second).
+        real = len(real_samples(rows)[0])
+        model = win_model.get("current")
+        if model is None or model.trained_on.get("real_closed_deals") != real:
+            model = await asyncio.to_thread(train, rows)
+            win_model["current"] = model
+        return model
+
+    @app.get("/api/ai/deals/win-probability")
+    async def win_probability(_: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
+        rows = await services.crm.deal_rows()
+        model = await current_model(rows)
+        return {
+            "model": {"type": "logistic regression (PyTorch)", "trained_on": model.trained_on, "trained_at": model.trained_at},
+            "deals": score_open_deals(model, rows),
+        }
 
     return app
 

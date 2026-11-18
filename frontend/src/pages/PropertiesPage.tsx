@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
-import { contactsApi, propertiesApi } from '../api'
+import { aiApi, contactsApi, propertiesApi } from '../api'
 import { ApiError } from '../api/client'
 import {
   AU_STATES,
@@ -11,10 +11,11 @@ import {
   type PropertyStatus,
   type PropertyType,
 } from '../api/types'
+import MatchesModal from '../components/MatchesModal'
 import Modal from '../components/Modal'
 import { Badge, ErrorBox, Field, PageHeader, Pagination } from '../components/ui'
 import { useDebounced } from '../components/useDebounced'
-import { formatCurrency, humanize, toNumberOrNull, toStringOrNull } from '../lib/format'
+import { formatBudget, formatCurrency, humanize, toNumberOrNull, toStringOrNull } from '../lib/format'
 
 export default function PropertiesPage() {
   const queryClient = useQueryClient()
@@ -23,6 +24,7 @@ export default function PropertiesPage() {
   const [type, setType] = useState('')
   const [page, setPage] = useState(1)
   const [editing, setEditing] = useState<Property | 'new' | null>(null)
+  const [matching, setMatching] = useState<Property | null>(null)
   const q = useDebounced(search)
 
   const list = useQuery({
@@ -122,6 +124,9 @@ export default function PropertiesPage() {
                 </td>
                 <td>{p.owner?.name ?? '-'}</td>
                 <td className="actions">
+                  <button className="btn" onClick={() => setMatching(p)} title="Buyers who fit this listing">
+                    Buyers
+                  </button>
                   <button className="btn" onClick={() => setEditing(p)}>
                     Edit
                   </button>
@@ -148,6 +153,15 @@ export default function PropertiesPage() {
       )}
 
       {editing && <PropertyForm property={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+      {matching && (
+        <MatchesModal
+          title={`Buyers for ${matching.title}`}
+          queryKey={['matches', 'property', matching.id]}
+          load={() => aiApi.buyersForProperty(matching.id)}
+          describe={(d) => `${String(d.type)} · budget ${formatBudget(d.budget_min as number | null, d.budget_max as number | null)}`}
+          onClose={() => setMatching(null)}
+        />
+      )}
     </>
   )
 }

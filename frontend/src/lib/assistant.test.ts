@@ -19,3 +19,19 @@ describe('describeToolCall', () => {
     expect(describeToolCall({ tool: 'pipeline_summary', input: {}, error: false })).toBe('Read pipeline totals')
   })
 })
+
+describe('score bands', () => {
+  it('bands match scores and win chances', async () => {
+    const { matchTier, winChance } = await import('./assistant')
+    expect([matchTier(85), matchTier(50), matchTier(20)]).toEqual(['high', 'mid', 'low'])
+    expect(winChance(0.624)).toEqual({ text: '62%', tier: 'high' })
+    expect(winChance(0.3).tier).toBe('mid')
+    expect(winChance(0.05)).toEqual({ text: '5%', tier: 'low' })
+  })
+
+  it('describes matching lookups with ids', () => {
+    expect(describeToolCall({ tool: 'match_buyers_for_property', input: { property_id: 4 }, error: false })).toBe(
+      'Matched buyers to listing: #4',
+    )
+  })
+})
