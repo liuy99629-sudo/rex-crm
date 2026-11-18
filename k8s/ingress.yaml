@@ -15,6 +15,14 @@ spec:
   rules:
     - http:
         paths:
+          # Longest prefix wins: /api/ai -> AI service, the rest of /api -> Laravel.
+          - path: /api/ai
+            pathType: Prefix
+            backend:
+              service:
+                name: rex-ai
+                port:
+                  number: 80
           - path: /api
             pathType: Prefix
             backend:

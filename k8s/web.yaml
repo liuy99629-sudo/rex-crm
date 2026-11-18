@@ -32,6 +32,8 @@ spec:
           env:
             - name: API_UPSTREAM
               value: rex-api:80
+            - name: AI_UPSTREAM
+              value: rex-ai:80
           readinessProbe:
             httpGet: { path: /, port: 8080 }
             periodSeconds: 10

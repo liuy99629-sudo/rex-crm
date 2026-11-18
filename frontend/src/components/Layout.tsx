@@ -6,6 +6,7 @@ const links = [
   { to: '/pipeline', label: 'Pipeline', end: false },
   { to: '/contacts', label: 'Contacts', end: false },
   { to: '/properties', label: 'Properties', end: false },
+  { to: '/assistant', label: 'Ask Rex', end: false },
 ]
 
 export default function Layout() {

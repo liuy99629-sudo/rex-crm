@@ -1,6 +1,7 @@
 # Rex CRM local stack:  docker compose up --build
 #   web    -> http://localhost:8080   (React, proxies /api to the API)
 #   api    -> http://localhost:8000   (Laravel, direct access for curl / Postman)
+#   ai     -> http://localhost:8001   (AI assistant, docs at /api/ai/docs)
 name: rex-crm
 
 x-api-env: &api-env
@@ -25,7 +26,11 @@ x-api-env: &api-env
 
 services:
   postgres:
-    image: postgres:16-alpine
+    # PostgreSQL 16 + the pgvector extension (vector search for the AI assistant).
+    # Switching an existing volume from postgres:16-alpine: run once
+    #   docker compose exec postgres psql -U rexcrm -d rexcrm -c "REINDEX DATABASE rexcrm"
+    # (alpine uses musl, this image uses glibc, and text index ordering can differ).
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_DB: rexcrm
       POSTGRES_USER: rexcrm
@@ -95,16 +100,67 @@ services:
       context: ./backend
       target: test
 
+  # "Ask Rex" AI assistant (Python, FastAPI, LangGraph, Claude, pgvector). Served at /api/ai/*.
+  ai:
+    build:
+      context: ./ai
+      target: app
+    image: rex-crm-ai:local
+    environment:
+      DATABASE_URL: postgresql://rexcrm:${DB_PASSWORD:-secret}@postgres:5432/rexcrm
+      LARAVEL_URL: http://api:8080
+      # Put your key in a .env file next to this one (never commit it). Without it the
+      # assistant answers 503 and everything else still works.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-claude-opus-5-5}
+      REINDEX_INTERVAL: "300"
+    ports:
+      - "8001:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+
+  # AI service tests (need no API key):  docker compose --profile test run --rm ai-test
+  # They drop and recreate tables, so they get their own throwaway database, never the CRM one.
+  ai-test:
+    profiles: ["test"]
+    build:
+      context: ./ai
+      target: test
+    environment:
+      TEST_DATABASE_URL: postgresql://postgres:test@ai-test-db:5432/aitest
+    depends_on:
+      ai-test-db:
+        condition: service_healthy
+
+  ai-test-db:
+    profiles: ["test"]
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: aitest
+    tmpfs: /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d aitest"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
   web:
     build: ./frontend
     image: rex-crm-web:local
     environment:
       API_UPSTREAM: api:8080
+      AI_UPSTREAM: ai:8000
     ports:
       - "8080:8080"
     depends_on:
       api:
         condition: service_healthy
+      ai:
+        condition: service_started
 
 volumes:
   pgdata:
