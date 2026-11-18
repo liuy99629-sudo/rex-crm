@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type DragEvent, type FormEvent } from 'react'
-import { contactsApi, dealsApi, pipelineApi, propertiesApi } from '../api'
+import { aiApi, contactsApi, dealsApi, pipelineApi, propertiesApi } from '../api'
 import { ApiError } from '../api/client'
-import { DEAL_STAGES, type Deal, type DealInput, type DealStage, type PipelineColumn } from '../api/types'
+import { DEAL_STAGES, type Deal, type DealInput, type DealStage, type PipelineColumn, type WinScore } from '../api/types'
+import { winChance } from '../lib/assistant'
 import Modal from '../components/Modal'
 import { ErrorBox, Field, PageHeader } from '../components/ui'
 import { formatCurrency, formatDate, formatDateTime, toNumberOrNull, toStringOrNull } from '../lib/format'
@@ -15,10 +16,14 @@ export default function PipelinePage() {
   const [dragOver, setDragOver] = useState<DealStage | null>(null)
 
   const board = useQuery({ queryKey: ['pipeline'], queryFn: pipelineApi.board })
+  // Optional: if the AI service is down the board simply shows no win chances.
+  const win = useQuery({ queryKey: ['win-probability'], queryFn: aiApi.winProbability, retry: false, staleTime: 60_000 })
+  const winById = new Map(win.data?.deals.map((s) => [s.deal_id, s]))
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ['pipeline'] })
     void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    void queryClient.invalidateQueries({ queryKey: ['win-probability'] })
   }
 
   // Dropping a card moves it instantly (optimistic), then the API saves it and queues the worker job.
@@ -89,7 +94,10 @@ export default function PipelinePage() {
                       {deal.property.title}
                     </div>
                   )}
-                  <div className="deal-value">{formatCurrency(deal.value)}</div>
+                  <div className="deal-foot">
+                    <span className="deal-value">{formatCurrency(deal.value)}</span>
+                    {winById.has(deal.id) && <WinBadge probability={winById.get(deal.id)!.probability} />}
+                  </div>
                 </article>
               ))}
               {column.deals.length === 0 && <div className="column-empty">Drop deals here</div>}
@@ -108,7 +116,7 @@ export default function PipelinePage() {
         />
       )}
       {openDealId !== null && (
-        <DealDetail dealId={openDealId} onClose={() => setOpenDealId(null)} onChanged={refresh} />
+        <DealDetail dealId={openDealId} win={winById.get(openDealId)} onClose={() => setOpenDealId(null)} onChanged={refresh} />
       )}
     </>
   )
@@ -194,7 +202,26 @@ function DealForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => vo
   )
 }
 
-function DealDetail({ dealId, onClose, onChanged }: { dealId: number; onClose: () => void; onChanged: () => void }) {
+function WinBadge({ probability }: { probability: number }) {
+  const { text, tier } = winChance(probability)
+  return (
+    <span className={`win-badge ${tier}`} title="Estimated chance this deal is won">
+      {text}
+    </span>
+  )
+}
+
+function DealDetail({
+  dealId,
+  win,
+  onClose,
+  onChanged,
+}: {
+  dealId: number
+  win?: WinScore
+  onClose: () => void
+  onChanged: () => void
+}) {
   const queryClient = useQueryClient()
   const [note, setNote] = useState('')
 
@@ -272,6 +299,21 @@ function DealDetail({ dealId, onClose, onChanged }: { dealId: number; onClose: (
           </div>
 
           {d.notes && <p className="deal-notes">{d.notes}</p>}
+
+          {win && (
+            <div className="win-panel">
+              <div>
+                <span className="muted small">Win chance</span> <WinBadge probability={win.probability} />
+              </div>
+              <ul>
+                {win.drivers.map((dr) => (
+                  <li key={dr.label} className={dr.effect}>
+                    {dr.effect === 'up' ? '▲' : '▼'} {dr.label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <h3>Activity</h3>
           <form

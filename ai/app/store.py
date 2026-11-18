@@ -27,6 +27,7 @@ class Hit:
 
 
 class VectorStore(Protocol):
+    async def vector(self, kind: str, source_id: int) -> list[float] | None: ...
     async def hashes(self) -> dict[tuple[str, int], str]: ...
     async def upsert(self, docs: list[Document], vectors: list[list[float]]) -> None: ...
     async def delete(self, keys: list[tuple[str, int]]) -> None: ...
@@ -57,6 +58,15 @@ class PgVectorStore:
                 )
                 """
             )
+
+    async def vector(self, kind: str, source_id: int) -> list[float] | None:
+        async with self._pool.connection() as conn:
+            row = await (
+                await conn.execute(
+                    "SELECT embedding::text FROM ai_documents WHERE kind = %s AND source_id = %s", (kind, source_id)
+                )
+            ).fetchone()
+        return [float(x) for x in row[0].strip("[]").split(",")] if row else None
 
     async def hashes(self) -> dict[tuple[str, int], str]:
         async with self._pool.connection() as conn:
@@ -102,6 +112,10 @@ def _literal(vector: list[float]) -> str:
 class InMemoryStore:
     def __init__(self) -> None:
         self.rows: dict[tuple[str, int], tuple[Document, list[float]]] = {}
+
+    async def vector(self, kind: str, source_id: int) -> list[float] | None:
+        row = self.rows.get((kind, source_id))
+        return row[1] if row else None
 
     async def hashes(self) -> dict[tuple[str, int], str]:
         return {k: d.content_hash for k, (d, _) in self.rows.items()}

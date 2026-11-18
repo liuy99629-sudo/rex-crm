@@ -27,9 +27,9 @@ CREATE TABLE properties (id bigserial PRIMARY KEY, title text NOT NULL, address_
   bedrooms int, bathrooms int, parking int, description text);
 CREATE TABLE deals (id bigserial PRIMARY KEY, title text NOT NULL, contact_id bigint NOT NULL REFERENCES contacts,
   property_id bigint REFERENCES properties, user_id bigint REFERENCES users, stage text NOT NULL, value bigint NOT NULL,
-  expected_close_date date, closed_at timestamp, notes text);
+  expected_close_date date, closed_at timestamp, notes text, created_at timestamp DEFAULT now());
 CREATE TABLE deal_activities (id bigserial PRIMARY KEY, deal_id bigint NOT NULL REFERENCES deals, type text NOT NULL,
-  body text, created_at timestamp DEFAULT now());
+  body text, meta json, created_at timestamp DEFAULT now());
 INSERT INTO users (name) VALUES ('Demo Agent');
 INSERT INTO contacts (name, type, budget_min, budget_max, notes) VALUES
   ('Jane Buyer', 'buyer', 900000, 1600000, 'Wants a pool for the kids'),
@@ -39,7 +39,16 @@ INSERT INTO properties (title, address_line, suburb, state, postcode, type, stat
 VALUES ('Family home in Burwood', '1 Park Ave', 'Burwood', 'NSW', '2134', 'house', 'active', 1500000, 4, 2, 2, 'Pool and big yard'),
        ('City apartment', '2 George St', 'Sydney', 'NSW', '2000', 'apartment', 'active', 800000, 2, 1, 1, 'Near the station');
 INSERT INTO deals (title, contact_id, property_id, user_id, stage, value) VALUES ('Purchase - Jane', 1, 1, 1, 'offer', 1450000);
-INSERT INTO deal_activities (deal_id, type, body) VALUES (1, 'note', 'Finance approval pending'), (1, 'stage_change', 'Lead to Offer');
+INSERT INTO deal_activities (deal_id, type, body, meta) VALUES (1, 'note', 'Finance approval pending', NULL),
+  (1, 'stage_change', 'Lead to Offer', '{"from": "lead", "to": "offer"}');
+"""
+
+CLOSED = """
+INSERT INTO deals (title, contact_id, property_id, stage, value, closed_at, created_at)
+VALUES ('Won deal', 3, 2, 'won', 800000, now() - interval '1 day', now() - interval '30 days');
+INSERT INTO deal_activities (deal_id, type, body, meta) VALUES
+  (2, 'stage_change', 'Lead to Offer', '{"from": "lead", "to": "offer"}'),
+  (2, 'stage_change', 'Negotiation to Won', '{"from": "negotiation", "to": "won"}');
 """
 
 
@@ -88,3 +97,27 @@ async def test_index_and_vector_search(pool):
         await conn.execute("DELETE FROM contacts WHERE name = 'Small Budget'")
     stats = await sync_index(crm, store, embedder)
     assert (stats.embedded, stats.deleted) == (0, 1)
+
+
+async def test_matching_and_scoring_queries(pool):
+    async with pool.connection() as conn:
+        await conn.execute(CLOSED)
+    crm = PgCrmRepository(pool)
+
+    buyers = {c["name"]: c for c in await crm.buyer_candidates()}
+    assert set(buyers) == {"Jane Buyer", "Open Budget", "Small Budget"}
+    assert buyers["Jane Buyer"]["deals"] == [{"deal_id": 1, "property_id": 1, "stage": "offer"}]
+    assert buyers["Open Budget"]["deals"] == []
+    assert [p["title"] for p in await crm.listing_candidates()] == ["Family home in Burwood", "City apartment"]
+
+    rows = {r["id"]: r for r in await crm.deal_rows()}
+    assert rows[1]["note_count"] == 1 and rows[1]["last_open_stage"] == "lead"  # open: unused by the model
+    assert rows[2]["last_open_stage"] == "negotiation"  # the stage it left when it was won
+
+    embedder = HashEmbedder()
+    store = PgVectorStore(pool, embedder.dimensions)
+    await store.setup()
+    await sync_index(crm, store, embedder)
+    vec = await store.vector("property", 1)
+    assert vec is not None and len(vec) == embedder.dimensions
+    assert await store.vector("property", 999) is None

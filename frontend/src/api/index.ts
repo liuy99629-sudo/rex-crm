@@ -9,11 +9,13 @@ import type {
   DealActivity,
   DealInput,
   DealStage,
+  MatchResult,
   Paginated,
   PipelineColumn,
   Property,
   PropertyInput,
   User,
+  WinScores,
 } from './types'
 
 type Query = Record<string, string | number | null | undefined>
@@ -55,6 +57,9 @@ export const dealsApi = {
 /** "Ask Rex" assistant: a separate Python service, routed under /api/ai by nginx and the Ingress. */
 export const aiApi = {
   ask: (messages: ChatMessage[]) => api<AiAnswer>('/ai/ask', { method: 'POST', body: { messages } }),
+  buyersForProperty: (id: number) => api<MatchResult>(`/ai/matches/properties/${id}`),
+  listingsForContact: (id: number) => api<MatchResult>(`/ai/matches/contacts/${id}`),
+  winProbability: () => api<WinScores>('/ai/deals/win-probability'),
 }
 
 export const pipelineApi = {

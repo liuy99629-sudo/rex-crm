@@ -68,6 +68,32 @@ def test_ask_validates_the_conversation(crm, store, embedder):
     assert c.post("/api/ai/ask", json=last_not_user, headers=GOOD).status_code == 422
 
 
+def test_matches_404_for_unknown_records(crm, store, embedder):
+    c = client(crm, store, embedder)
+
+    assert c.get("/api/ai/matches/properties/99", headers=GOOD).status_code == 404
+    assert c.get("/api/ai/matches/contacts/99", headers=GOOD).status_code == 404
+    assert c.get("/api/ai/matches/properties/99").status_code == 401
+
+
+def test_win_probability_scores_open_deals(crm, store, embedder):
+    from datetime import datetime, timedelta
+
+    now = datetime.now()
+    crm.deals = [
+        {"id": 1, "stage": "offer", "value": 1_000_000, "created_at": now - timedelta(days=10), "last_activity_at": now,
+         "note_count": 2, "expected_close_date": None, "closed_at": None, "property_price": 1_000_000,
+         "budget_min": None, "budget_max": None, "last_open_stage": None},
+        {"id": 2, "stage": "won", "value": 1, "created_at": now, "last_activity_at": None, "note_count": 0,
+         "expected_close_date": None, "closed_at": now, "property_price": None, "budget_min": None, "budget_max": None,
+         "last_open_stage": None},
+    ]
+    body = client(crm, store, embedder).get("/api/ai/deals/win-probability", headers=GOOD).json()
+
+    assert body["model"]["trained_on"] == {"simulated": 4000, "real_closed_deals": 0}
+    assert [d["deal_id"] for d in body["deals"]] == [1]
+
+
 def test_reindex_syncs_the_store(crm, store, embedder):
     r = client(crm, store, embedder).post("/api/ai/reindex", headers=GOOD)
 
