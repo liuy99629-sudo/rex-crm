@@ -1,0 +1,49 @@
+# Databricks Asset Bundle: run the same job on a Databricks cluster instead of the Kubernetes CronJob.
+#   databricks bundle validate && databricks bundle deploy -t dev && databricks bundle run rex_analytics -t dev
+# Not exercised in this repo's CI (needs a workspace). Secrets come from a Databricks secret scope "rex":
+#   databricks secrets create-scope rex
+#   databricks secrets put-secret rex crm_db_password   (and snowflake_password if using Snowflake)
+bundle:
+  name: rex-crm-analytics
+
+variables:
+  crm_jdbc_url:
+    description: JDBC URL of the CRM database, reachable from the workspace (e.g. through Private Link)
+  spark_version:
+    description: Databricks Runtime version string for the job cluster
+    default: 16.4.x-scala2.13
+  node_type_id:
+    description: Worker instance type
+    default: m6i.large
+
+targets:
+  dev:
+    mode: development
+    default: true
+  prod:
+    mode: production
+
+resources:
+  jobs:
+    rex_analytics:
+      name: rex-crm-analytics
+      schedule:
+        quartz_cron_expression: "0 0 3 * * ?"
+        timezone_id: Australia/Sydney
+      tasks:
+        - task_key: build_marts
+          spark_python_task:
+            python_file: ./run_job.py
+          libraries:
+            - pypi: { package: "snowflake-connector-python[pandas]>=3.12,<6" }
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            num_workers: 1
+            spark_env_vars:
+              CRM_JDBC_URL: ${var.crm_jdbc_url}
+              CRM_DB_USER: rexcrm
+              CRM_DB_PASSWORD: "{{secrets/rex/crm_db_password}}"
+              # On Databricks, keep the marts in the lakehouse and in the CRM; add snowflake if used.
+              SINKS: postgres,parquet
+              PARQUET_PATH: dbfs:/rex-crm/warehouse

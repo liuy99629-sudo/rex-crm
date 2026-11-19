@@ -7,6 +7,7 @@ import type {
   DealActivity,
   DealInput,
   DealStage,
+  Insights,
   Paginated,
   PipelineColumn,
   Property,
@@ -48,6 +49,10 @@ export const dealsApi = {
   remove: (id: number) => api<void>(`/deals/${id}`, { method: 'DELETE' }),
   setStage: (id: number, stage: DealStage) => api<Deal>(`/deals/${id}/stage`, { method: 'PATCH', body: { stage } }),
   addNote: (id: number, body: string) => api<DealActivity>(`/deals/${id}/notes`, { method: 'POST', body: { body } }),
+}
+
+export const insightsApi = {
+  get: () => api<Insights>('/insights'),
 }
 
 export const pipelineApi = {

@@ -3,6 +3,7 @@ import { useAuth } from './auth'
 import Layout from './components/Layout'
 import ContactsPage from './pages/ContactsPage'
 import DashboardPage from './pages/DashboardPage'
+import InsightsPage from './pages/InsightsPage'
 import LoginPage from './pages/LoginPage'
 import PipelinePage from './pages/PipelinePage'
 import PropertiesPage from './pages/PropertiesPage'
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="contacts" element={<ContactsPage />} />
         <Route path="properties" element={<PropertiesPage />} />
         <Route path="pipeline" element={<PipelinePage />} />
+        <Route path="insights" element={<InsightsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

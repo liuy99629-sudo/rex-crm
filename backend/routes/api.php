@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DealController;
 use App\Http\Controllers\Api\HealthController;
+use App\Http\Controllers\Api\InsightsController;
 use App\Http\Controllers\Api\IntegrationLeadController;
 use App\Http\Controllers\Api\PipelineController;
 use App\Http\Controllers\Api\PropertyController;
@@ -36,6 +37,7 @@ Route::middleware(['auth:sanctum', 'full-token'])->group(function () {
 
     Route::get('/dashboard', DashboardController::class);
     Route::get('/pipeline', [PipelineController::class, 'index']);
+    Route::get('/insights', InsightsController::class);
 
     Route::apiResource('contacts', ContactController::class);
     Route::apiResource('properties', PropertyController::class);
