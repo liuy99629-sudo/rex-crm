@@ -13,6 +13,7 @@ import {
 } from '../api/types'
 import Modal from '../components/Modal'
 import { Badge, ErrorBox, Field, PageHeader, Pagination } from '../components/ui'
+import { useConfirm } from '../components/useConfirm'
 import { useDebounced } from '../components/useDebounced'
 import { formatCurrency, humanize, toNumberOrNull, toStringOrNull } from '../lib/format'
 
@@ -24,6 +25,7 @@ export default function PropertiesPage() {
   const [page, setPage] = useState(1)
   const [editing, setEditing] = useState<Property | 'new' | null>(null)
   const q = useDebounced(search)
+  const { confirm, dialog } = useConfirm()
 
   const list = useQuery({
     queryKey: ['properties', { q, status, type, page }],
@@ -125,7 +127,7 @@ export default function PropertiesPage() {
                   <button className="btn" onClick={() => setEditing(p)}>
                     Edit
                   </button>
-                  <button className="btn btn-danger" onClick={() => window.confirm(`Delete ${p.title}?`) && remove.mutate(p.id)}>
+                  <button className="btn btn-danger" onClick={() => confirm(`Delete ${p.title}?`, () => remove.mutate(p.id))}>
                     Delete
                   </button>
                 </td>
@@ -148,6 +150,7 @@ export default function PropertiesPage() {
       )}
 
       {editing && <PropertyForm property={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+      {dialog}
     </>
   )
 }
