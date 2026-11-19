@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DealController;
 use App\Http\Controllers\Api\HealthController;
+use App\Http\Controllers\Api\IntegrationLeadController;
 use App\Http\Controllers\Api\PipelineController;
 use App\Http\Controllers\Api\PropertyController;
 use App\Http\Controllers\Api\PublicEnquiryController;
@@ -23,7 +24,13 @@ Route::prefix('public')->group(function () {
     Route::post('/enquiries', [PublicEnquiryController::class, 'store'])->middleware('throttle:5,1');
 });
 
-Route::middleware('auth:sanctum')->group(function () {
+// Machine integrations (e.g. the AWS email lead pipeline): limited tokens from `php artisan rex:integration-token`.
+Route::middleware(['auth:sanctum', 'abilities:leads:write', 'throttle:120,1'])->group(function () {
+    Route::post('/integrations/leads', [IntegrationLeadController::class, 'store']);
+});
+
+// The CRM itself: full-access tokens from /auth/login only (integration tokens get 403).
+Route::middleware(['auth:sanctum', 'full-token'])->group(function () {
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
 
