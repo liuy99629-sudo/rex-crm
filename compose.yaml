@@ -131,5 +131,43 @@ services:
       gateway:
         condition: service_healthy
 
+  # AWS email lead pipeline, locally: LocalStack stands in for S3 + DynamoDB, and the runner
+  # polls the inbox bucket (on AWS an S3 event invokes the Lambda instead). Start with:
+  #   docker compose --profile aws up -d
+  # Needs LEAD_PIPELINE_TOKEN in .env: docker compose exec api php artisan rex:integration-token lead-pipeline
+  localstack:
+    profiles: ["aws"]
+    image: localstack/localstack:4.4
+    environment:
+      SERVICES: s3,dynamodb
+    ports:
+      - "127.0.0.1:4566:4566"
+
+  lead-pipeline:
+    profiles: ["aws"]
+    build:
+      context: ./lead-pipeline
+      target: local
+    image: rex-crm-lead-pipeline:local
+    command: ["python", "-m", "leads.local", "--seed"]
+    environment:
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_REGION: ap-southeast-2
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      CRM_API_URL: http://api:8080/api
+      CRM_TOKEN: ${LEAD_PIPELINE_TOKEN:-}
+      EXTRACTOR: rules # LocalStack has no Bedrock; set to "claude" with real AWS credentials
+    depends_on:
+      - localstack
+      - api
+
+  # Lead pipeline tests (need no AWS account):  docker compose --profile test run --rm lead-pipeline-test
+  lead-pipeline-test:
+    profiles: ["test"]
+    build:
+      context: ./lead-pipeline
+      target: test
+
 volumes:
   pgdata:

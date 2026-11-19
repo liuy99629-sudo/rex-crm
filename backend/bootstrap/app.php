@@ -15,6 +15,11 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         // Behind the GKE Ingress / nginx the real client IP and scheme come from forwarded headers.
         $middleware->trustProxies(at: '*');
+
+        $middleware->alias([
+            'abilities' => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
+            'full-token' => \App\Http\Middleware\RejectLimitedTokens::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         // This is a JSON API: always render errors as JSON for /api/*.
