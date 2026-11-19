@@ -10,6 +10,7 @@ import type {
   DealInput,
   DealStage,
   MatchResult,
+  Insights,
   Paginated,
   PipelineColumn,
   Property,
@@ -61,6 +62,10 @@ export const aiApi = {
   buyersForProperty: (id: number) => api<MatchResult>(`/ai/matches/properties/${id}`),
   listingsForContact: (id: number) => api<MatchResult>(`/ai/matches/contacts/${id}`),
   winProbability: () => api<WinScores>('/ai/deals/win-probability'),
+}
+
+export const insightsApi = {
+  get: () => api<Insights>('/insights'),
 }
 
 export const pipelineApi = {

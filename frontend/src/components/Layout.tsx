@@ -7,6 +7,7 @@ const links = [
   { to: '/contacts', label: 'Contacts', end: false },
   { to: '/properties', label: 'Properties', end: false },
   { to: '/assistant', label: 'Ask Rex', end: false },
+  { to: '/insights', label: 'Insights', end: false },
 ]
 
 export default function Layout() {

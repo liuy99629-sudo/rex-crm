@@ -11,6 +11,7 @@ resources:
   - web.yaml
   - ai.yaml
   - portal.yaml
+  - analytics.yaml
   - ingress.yaml
 # CI replaces these with the real Artifact Registry paths and the commit SHA (see .github/workflows/ci.yml).
 images:
@@ -28,4 +29,7 @@ images:
     newTag: latest
   - name: rex-crm-portal
     newName: REGION-docker.pkg.dev/PROJECT_ID/rex-crm/portal
+    newTag: latest
+  - name: rex-crm-analytics
+    newName: REGION-docker.pkg.dev/PROJECT_ID/rex-crm/analytics
     newTag: latest
