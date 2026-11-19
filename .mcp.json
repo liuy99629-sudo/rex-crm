@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "rex-crm": {
+      "command": "node",
+      "args": ["mcp/dist/index.js"],
+      "env": {
+        "REX_API_URL": "${REX_API_URL:-http://localhost:8080/api}",
+        "REX_API_TOKEN": "${REX_API_TOKEN}"
+      }
+    }
+  }
+}
