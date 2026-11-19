@@ -9,6 +9,7 @@ from typing import Any
 
 from .crm import CrmRepository
 from .embeddings import Embedder
+from .matching import buyers_for_property, properties_for_contact
 from .store import VectorStore
 
 # Mirrors backend/app/Enums (keep in sync, like frontend/src/api/types.ts).
@@ -79,6 +80,18 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         {"deal_id": {"type": "integer"}},
     ),
     _tool("pipeline_summary", "Number of deals and total value per pipeline stage.", {}),
+    _tool(
+        "match_buyers_for_property",
+        "Rank buyers and investors for a listing by budget fit and how well their notes match the description. "
+        "Use for 'who should I call about property X'. Each match includes the reasons.",
+        {"property_id": {"type": "integer"}},
+    ),
+    _tool(
+        "match_listings_for_contact",
+        "Rank active and coming-soon listings for a buyer or investor by budget fit and how well they match the "
+        "client's notes. Each match includes the reasons.",
+        {"contact_id": {"type": "integer"}},
+    ),
 ]
 
 
@@ -121,6 +134,12 @@ async def run_tool(ctx: ToolContext, name: str, args: dict[str, Any]) -> tuple[s
             return (_json(deal), False) if deal else (f"No deal with id {args['deal_id']}.", True)
         if name == "pipeline_summary":
             return _json(await ctx.crm.pipeline_summary()), False
+        if name == "match_buyers_for_property":
+            found = await buyers_for_property(ctx.crm, ctx.store, int(args["property_id"]))
+            return (_json(found), False) if found else (f"No property with id {args['property_id']}.", True)
+        if name == "match_listings_for_contact":
+            found = await properties_for_contact(ctx.crm, ctx.store, int(args["contact_id"]))
+            return (_json(found), False) if found else (f"No contact with id {args['contact_id']}.", True)
         return f"Unknown tool: {name}", True
     except Exception as exc:  # noqa: BLE001 - report any tool failure to the model
         return f"Tool {name} failed: {type(exc).__name__}: {exc}", True

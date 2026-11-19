@@ -21,6 +21,11 @@ class CrmRepository(Protocol):
     async def search_contacts(self, **filters: Any) -> list[dict[str, Any]]: ...
     async def get_deal(self, deal_id: int) -> dict[str, Any] | None: ...
     async def pipeline_summary(self) -> list[dict[str, Any]]: ...
+    async def get_property(self, property_id: int) -> dict[str, Any] | None: ...
+    async def get_contact(self, contact_id: int) -> dict[str, Any] | None: ...
+    async def buyer_candidates(self) -> list[dict[str, Any]]: ...
+    async def listing_candidates(self) -> list[dict[str, Any]]: ...
+    async def deal_rows(self) -> list[dict[str, Any]]: ...
 
 
 def make_document(kind: str, source_id: int, title: str, text: str) -> Document:
@@ -150,4 +155,50 @@ class PgCrmRepository:
     async def pipeline_summary(self) -> list[dict[str, Any]]:
         return await self._all(
             "SELECT stage, COUNT(*) AS deals, COALESCE(SUM(value), 0) AS total_value FROM deals GROUP BY stage ORDER BY stage"
+        )
+
+    async def get_property(self, property_id: int) -> dict[str, Any] | None:
+        rows = await self._all(
+            "SELECT id, title, suburb, type, status, price, bedrooms FROM properties WHERE id = %s", [property_id]
+        )
+        return rows[0] if rows else None
+
+    async def get_contact(self, contact_id: int) -> dict[str, Any] | None:
+        rows = await self._all(
+            "SELECT id, name, type, budget_min, budget_max, notes FROM contacts WHERE id = %s", [contact_id]
+        )
+        return rows[0] if rows else None
+
+    async def buyer_candidates(self) -> list[dict[str, Any]]:
+        """Buyers and investors, each with the properties they already have a deal on."""
+        return await self._all(
+            "SELECT c.id, c.name, c.type, c.budget_min, c.budget_max, c.notes, "
+            "COALESCE(json_agg(json_build_object('deal_id', d.id, 'property_id', d.property_id, 'stage', d.stage)) "
+            "FILTER (WHERE d.id IS NOT NULL), '[]') AS deals "
+            "FROM contacts c LEFT JOIN deals d ON d.contact_id = c.id "
+            "WHERE c.type IN ('buyer', 'investor') GROUP BY c.id ORDER BY c.id"
+        )
+
+    async def listing_candidates(self) -> list[dict[str, Any]]:
+        """Listings a buyer could still buy: active, under offer, or coming soon (draft)."""
+        return await self._all(
+            "SELECT id, title, suburb, type, status, price, bedrooms FROM properties "
+            "WHERE status IN ('active', 'under_offer', 'draft') ORDER BY id"
+        )
+
+    async def deal_rows(self) -> list[dict[str, Any]]:
+        """Everything the win-probability model needs, one row per deal. For closed deals,
+        last_open_stage is the stage they left when they closed (from the logged stage change)."""
+        return await self._all(
+            """
+            SELECT d.id, d.stage, d.value, d.created_at, d.expected_close_date, d.closed_at,
+                   p.price AS property_price, c.budget_min, c.budget_max,
+                   (SELECT COUNT(*) FROM deal_activities a WHERE a.deal_id = d.id AND a.type = 'note') AS note_count,
+                   (SELECT MAX(a.created_at) FROM deal_activities a WHERE a.deal_id = d.id) AS last_activity_at,
+                   (SELECT a.meta->>'from' FROM deal_activities a
+                     WHERE a.deal_id = d.id AND a.type = 'stage_change' AND a.meta->>'to' = d.stage
+                     ORDER BY a.created_at DESC LIMIT 1) AS last_open_stage
+            FROM deals d JOIN contacts c ON c.id = d.contact_id LEFT JOIN properties p ON p.id = d.property_id
+            ORDER BY d.id
+            """
         )

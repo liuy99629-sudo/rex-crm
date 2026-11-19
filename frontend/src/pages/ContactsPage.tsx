@@ -1,13 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
-import { contactsApi } from '../api'
+import { aiApi, contactsApi } from '../api'
 import { ApiError } from '../api/client'
 import { CONTACT_TYPES, type Contact, type ContactInput, type ContactType } from '../api/types'
+import MatchesModal from '../components/MatchesModal'
 import Modal from '../components/Modal'
 import { Badge, ErrorBox, Field, PageHeader, Pagination } from '../components/ui'
 import { useConfirm } from '../components/useConfirm'
 import { useDebounced } from '../components/useDebounced'
-import { formatBudget, toNumberOrNull, toStringOrNull } from '../lib/format'
+import { formatBudget, formatCurrency, humanize, toNumberOrNull, toStringOrNull } from '../lib/format'
 
 export default function ContactsPage() {
   const queryClient = useQueryClient()
@@ -15,6 +16,7 @@ export default function ContactsPage() {
   const [type, setType] = useState('')
   const [page, setPage] = useState(1)
   const [editing, setEditing] = useState<Contact | 'new' | null>(null)
+  const [matching, setMatching] = useState<Contact | null>(null)
   const q = useDebounced(search)
   const { confirm, dialog } = useConfirm()
 
@@ -97,6 +99,11 @@ export default function ContactsPage() {
                 </td>
                 <td>{c.deals_count ?? 0}</td>
                 <td className="actions">
+                  {(c.type === 'buyer' || c.type === 'investor') && (
+                    <button className="btn" onClick={() => setMatching(c)} title="Listings that fit this client">
+                      Listings
+                    </button>
+                  )}
                   <button className="btn" onClick={() => setEditing(c)}>
                     Edit
                   </button>
@@ -127,6 +134,15 @@ export default function ContactsPage() {
 
       {editing && <ContactForm contact={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
       {dialog}
+      {matching && (
+        <MatchesModal
+          title={`Listings for ${matching.name}`}
+          queryKey={['matches', 'contact', matching.id]}
+          load={() => aiApi.listingsForContact(matching.id)}
+          describe={(d) => `${String(d.suburb)} · ${humanize(String(d.type))} · ${formatCurrency(d.price as number | null)} · ${humanize(String(d.status))}`}
+          onClose={() => setMatching(null)}
+        />
+      )}
     </>
   )
 }

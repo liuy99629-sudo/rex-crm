@@ -42,6 +42,13 @@ async def test_missing_deal_and_unknown_tool_are_reported_as_errors(crm, store, 
     assert (await run_tool(ctx, "drop_tables", {}))[1] is True
 
 
+async def test_matching_tools_report_unknown_ids(crm, store, embedder):
+    ctx = ToolContext(crm, store, embedder)
+
+    assert (await run_tool(ctx, "match_buyers_for_property", {"property_id": 42}))[1] is True
+    assert (await run_tool(ctx, "match_listings_for_contact", {"contact_id": 42}))[1] is True
+
+
 async def test_tool_exceptions_are_returned_not_raised(crm, store, embedder):
     async def boom(**_):
         raise RuntimeError("db down")
