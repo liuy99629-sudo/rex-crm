@@ -7,3 +7,6 @@ vendor/
 *.tar.gz
 .next/
 *.tsbuildinfo
+.aws-sam/
+__pycache__/
+.pytest_cache/
