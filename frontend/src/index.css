@@ -150,3 +150,10 @@ tr:last-child td { border-bottom: none; }
   .bar-row { grid-template-columns: 90px 1fr; }
   .bar-value { grid-column: 1 / -1; text-align: left; }
 }
+
+/* Insights */
+.insights { display: flex; flex-direction: column; gap: 16px; }
+.insights .table-wrap { margin: 0 -18px -18px; }
+.mini-bar { display: inline-block; width: 60px; height: 6px; background: #e8ecf5; border-radius: 999px; vertical-align: middle; margin-right: 6px; overflow: hidden; }
+.mini-bar span { display: block; height: 100%; background: var(--primary); }
+.velocity { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px 24px; }

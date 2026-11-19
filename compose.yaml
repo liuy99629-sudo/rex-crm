@@ -169,5 +169,40 @@ services:
       context: ./lead-pipeline
       target: test
 
+  # Nightly analytics (PySpark): CRM tables -> marts in Postgres (analytics_*, shown on the Insights
+  # page), Parquet files, and Snowflake when configured. Run once:
+  #   docker compose --profile analytics run --rm analytics
+  analytics:
+    profiles: ["analytics"]
+    build:
+      context: ./analytics
+      target: job
+    image: rex-crm-analytics:local
+    environment:
+      CRM_JDBC_URL: jdbc:postgresql://postgres:5432/rexcrm
+      CRM_DB_USER: rexcrm
+      CRM_DB_PASSWORD: ${DB_PASSWORD:-secret}
+      SINKS: ${ANALYTICS_SINKS:-postgres,parquet}
+      PARQUET_PATH: /data/warehouse
+      SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT:-}
+      SNOWFLAKE_USER: ${SNOWFLAKE_USER:-}
+      SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD:-}
+      SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE:-}
+      SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE:-}
+      SNOWFLAKE_SCHEMA: ${SNOWFLAKE_SCHEMA:-}
+    volumes:
+      - warehouse:/data/warehouse
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Analytics tests (local Spark, no database):  docker compose --profile test run --rm analytics-test
+  analytics-test:
+    profiles: ["test"]
+    build:
+      context: ./analytics
+      target: test
+
 volumes:
   pgdata:
+  warehouse:

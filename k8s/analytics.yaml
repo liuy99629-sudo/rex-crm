@@ -1,0 +1,40 @@
+# Nightly analytics job (PySpark in local mode inside the pod; the data set is small).
+# Writes the analytics_* tables the CRM's Insights page reads. Image tag set by CI.
+# To also load Snowflake, add "snowflake" to SINKS and SNOWFLAKE_* keys to rex-crm-secrets.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: rex-analytics
+spec:
+  schedule: "0 17 * * *" # 17:00 UTC = 3-4am in Sydney, after the day's activity
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 1800
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: analytics
+              image: rex-crm-analytics
+              env:
+                - name: CRM_JDBC_URL
+                  value: jdbc:postgresql://postgres:5432/rexcrm
+                - name: CRM_DB_USER
+                  valueFrom:
+                    configMapKeyRef: { name: rex-crm-config, key: DB_USERNAME }
+                - name: CRM_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef: { name: rex-crm-secrets, key: DB_PASSWORD }
+                - name: SINKS
+                  value: postgres
+              envFrom:
+                - secretRef:
+                    name: rex-crm-secrets
+                    optional: true
+              resources:
+                requests: { cpu: 500m, memory: 1Gi }
+                limits: { memory: 2Gi }
