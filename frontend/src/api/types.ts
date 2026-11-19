@@ -130,6 +130,23 @@ export interface DashboardStats {
   won_value_this_month: number
 }
 
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface AiToolCall {
+  tool: string
+  input: Record<string, unknown>
+  error: boolean
+}
+
+export interface AiAnswer {
+  answer: string
+  tool_calls: AiToolCall[]
+  model_calls: number
+}
+
 export interface Paginated<T> {
   data: T[]
   meta: { current_page: number; last_page: number; per_page: number; total: number }

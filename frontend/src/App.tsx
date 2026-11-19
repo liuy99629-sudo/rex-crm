@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './auth'
 import Layout from './components/Layout'
+import AssistantPage from './pages/AssistantPage'
 import ContactsPage from './pages/ContactsPage'
 import DashboardPage from './pages/DashboardPage'
 import LoginPage from './pages/LoginPage'
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="contacts" element={<ContactsPage />} />
         <Route path="properties" element={<PropertiesPage />} />
         <Route path="pipeline" element={<PipelinePage />} />
+        <Route path="assistant" element={<AssistantPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

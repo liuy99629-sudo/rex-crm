@@ -1,5 +1,7 @@
 import { api } from './client'
 import type {
+  AiAnswer,
+  ChatMessage,
   Contact,
   ContactInput,
   DashboardStats,
@@ -49,6 +51,11 @@ export const dealsApi = {
   setStage: (id: number, stage: DealStage) => api<Deal>(`/deals/${id}/stage`, { method: 'PATCH', body: { stage } }),
   addNote: (id: number, body: string) => api<DealActivity>(`/deals/${id}/notes`, { method: 'POST', body: { body } }),
   deleteNote: (id: number, activityId: number) => api<void>(`/deals/${id}/notes/${activityId}`, { method: 'DELETE' }),
+}
+
+/** "Ask Rex" assistant: a separate Python service, routed under /api/ai by nginx and the Ingress. */
+export const aiApi = {
+  ask: (messages: ChatMessage[]) => api<AiAnswer>('/ai/ask', { method: 'POST', body: { messages } }),
 }
 
 export const pipelineApi = {

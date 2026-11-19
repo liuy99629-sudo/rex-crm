@@ -143,6 +143,22 @@ tr:last-child td { border-bottom: none; }
 .link-danger:hover:not(:disabled) { text-decoration: underline; }
 .link-danger:disabled { opacity: 0.55; cursor: not-allowed; }
 
+/* Ask Rex */
+.chat { display: flex; flex-direction: column; gap: 12px; min-height: 360px; max-height: calc(100vh - 220px); overflow-y: auto; }
+.chat-empty p { margin-top: 0; }
+.suggestions { display: flex; flex-wrap: wrap; gap: 8px; }
+.suggestion { text-align: left; }
+.bubble { max-width: 78%; padding: 10px 14px; border-radius: 12px; }
+.bubble.user { align-self: flex-end; background: var(--primary); color: #fff; }
+.bubble.assistant { align-self: flex-start; background: #f0f2f7; }
+.bubble-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.tool-trace { margin-top: 8px; }
+.tool-trace summary { cursor: pointer; }
+.tool-trace ul { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: var(--muted); }
+.tool-trace li.error { color: var(--danger); }
+.chat-input { display: flex; gap: 8px; margin-top: 12px; }
+.chat-input input { flex: 1; font: inherit; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; }
+
 @media (max-width: 800px) {
   .shell { flex-direction: column; }
   .sidebar { width: 100%; height: auto; position: static; flex-direction: row; align-items: center; flex-wrap: wrap; gap: 8px; }
@@ -152,4 +168,6 @@ tr:last-child td { border-bottom: none; }
   .form-row, .form-row-3, .form-row-4, .deal-meta { grid-template-columns: 1fr; }
   .bar-row { grid-template-columns: 90px 1fr; }
   .bar-value { grid-column: 1 / -1; text-align: left; }
+  .bubble { max-width: 100%; }
+  .chat { max-height: none; }
 }

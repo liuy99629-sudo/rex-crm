@@ -4,6 +4,17 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    # Browser -> nginx -> AI assistant (Python). More specific than /api/, so it wins.
+    location /api/ai/ {
+        proxy_pass http://${AI_UPSTREAM};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # An answer can take several model calls and tool lookups.
+        proxy_read_timeout 180s;
+    }
+
     # Browser -> nginx -> Laravel API
     location /api/ {
         proxy_pass http://${API_UPSTREAM};
