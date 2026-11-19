@@ -1,0 +1,67 @@
+:root {
+  --bg: #f7f5f1;
+  --surface: #ffffff;
+  --text: #1f2430;
+  --muted: #6a7080;
+  --border: #e4e1da;
+  --accent: #0f6e5a;
+  --accent-hover: #0b5747;
+  --danger: #b42318;
+  --radius: 10px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: var(--text);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); line-height: 1.5; font-size: 15px; }
+a { color: var(--accent); }
+h1 { font-size: 26px; margin: 8px 0 4px; }
+h2 { font-size: 17px; margin: 0 0 8px; }
+.muted { color: var(--muted); margin: 0; }
+.small { font-size: 12px; }
+
+.site-header { display: flex; align-items: baseline; gap: 14px; padding: 16px 24px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.logo { font-weight: 800; font-size: 20px; color: var(--accent); text-decoration: none; }
+.tagline { color: var(--muted); }
+.container { max-width: 1120px; margin: 0 auto; padding: 24px 16px 48px; }
+.site-footer { text-align: center; color: var(--muted); font-size: 12px; padding: 24px 16px; }
+
+.search { display: flex; flex-wrap: wrap; gap: 8px; background: var(--surface); padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); }
+.search input { flex: 1 1 260px; }
+input, select, textarea { font: inherit; padding: 9px 11px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--text); width: 100%; }
+.search select { width: auto; flex: 0 1 auto; }
+button { font: inherit; padding: 9px 18px; border: none; border-radius: 8px; background: var(--accent); color: #fff; cursor: pointer; font-weight: 600; }
+button:hover:not(:disabled) { background: var(--accent-hover); }
+button:disabled { opacity: 0.6; cursor: wait; }
+
+.count { color: var(--muted); margin: 16px 0; }
+.empty { text-align: center; padding: 48px 16px; color: var(--muted); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.grid.small { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.card { display: block; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; color: inherit; text-decoration: none; }
+.card:hover { border-color: var(--accent); }
+.card-photo, .hero { display: grid; place-items: center; height: 150px; background: linear-gradient(135deg, #dfe9e4, #c9dbd3); color: #4a6b60; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; font-size: 13px; }
+.hero { height: 240px; border-radius: var(--radius); margin-bottom: 12px; }
+.card-body { padding: 12px 14px; }
+.card-body h2 { font-size: 16px; margin: 2px 0; }
+.price { font-weight: 700; margin: 6px 0 0; }
+.price.big { font-size: 22px; }
+.tag { display: inline-block; background: #fdf0d2; color: #8a5a00; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+.pager { display: flex; justify-content: center; gap: 18px; margin-top: 24px; align-items: center; }
+
+.listing { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 12px 0; }
+.facts li { background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 3px 12px; }
+.description { white-space: pre-line; margin: 16px 0 28px; }
+.enquiry { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; position: sticky; top: 16px; }
+.enquiry-form { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.enquiry-form label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; font-size: 13px; }
+.field-error, .form-error { color: var(--danger); font-size: 12px; font-weight: 500; }
+.hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+.sent { background: #e6f4ee; border-radius: 8px; padding: 12px; margin-top: 12px; }
+
+@media (max-width: 800px) {
+  .listing { grid-template-columns: 1fr; }
+  .enquiry { position: static; }
+  .site-header { flex-direction: column; gap: 2px; }
+}
