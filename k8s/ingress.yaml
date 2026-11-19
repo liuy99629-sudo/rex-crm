@@ -13,6 +13,18 @@ metadata:
     # kubernetes.io/ingress.allow-http: "false"
 spec:
   rules:
+    # Public listings website on its own hostname (set it to your real domain and point DNS at the static IP).
+    - host: www.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: rex-portal
+                port:
+                  number: 80
+    # The CRM itself (any other hostname).
     - http:
         paths:
           - path: /api
