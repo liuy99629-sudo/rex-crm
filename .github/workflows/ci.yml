@@ -50,10 +50,30 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  portal:
+    name: Portal + gateway test + build (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [gateway, portal]
+    defaults:
+      run:
+        working-directory: ${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ matrix.app }}/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
   images:
     name: Build and push images
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [backend, frontend]
+    needs: [backend, frontend, portal]
     runs-on: ubuntu-latest
     env:
       REGISTRY: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}
@@ -86,6 +106,26 @@ jobs:
             ${{ env.REGISTRY }}/web:latest
           cache-from: type=gha,scope=web
           cache-to: type=gha,scope=web,mode=max
+      - name: Build and push gateway image
+        uses: docker/build-push-action@v6
+        with:
+          context: gateway
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/gateway:${{ github.sha }}
+            ${{ env.REGISTRY }}/gateway:latest
+          cache-from: type=gha,scope=gateway
+          cache-to: type=gha,scope=gateway,mode=max
+      - name: Build and push portal image
+        uses: docker/build-push-action@v6
+        with:
+          context: portal
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/portal:${{ github.sha }}
+            ${{ env.REGISTRY }}/portal:latest
+          cache-from: type=gha,scope=portal
+          cache-to: type=gha,scope=portal,mode=max
 
   deploy:
     name: Deploy to GKE
@@ -117,3 +157,5 @@ jobs:
           kubectl -n rex-crm rollout status deployment/rex-api --timeout=300s
           kubectl -n rex-crm rollout status deployment/rex-worker --timeout=180s
           kubectl -n rex-crm rollout status deployment/rex-web --timeout=180s
+          kubectl -n rex-crm rollout status deployment/rex-gateway --timeout=180s
+          kubectl -n rex-crm rollout status deployment/rex-portal --timeout=180s

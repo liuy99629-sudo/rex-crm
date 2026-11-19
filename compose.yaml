@@ -1,6 +1,8 @@
 # Rex CRM local stack:  docker compose up --build
 #   web    -> http://localhost:8080   (React, proxies /api to the API)
 #   api    -> http://localhost:8000   (Laravel, direct access for curl / Postman)
+#   portal -> http://localhost:3000   (public listings website, Next.js)
+#   gateway-> http://localhost:4000/graphql (public GraphQL API behind the portal)
 name: rex-crm
 
 x-api-env: &api-env
@@ -104,6 +106,29 @@ services:
       - "8080:8080"
     depends_on:
       api:
+        condition: service_healthy
+
+  # Public listings website: Next.js (portal) -> GraphQL gateway -> Laravel /api/public/*.
+  gateway:
+    build: ./gateway
+    image: rex-crm-gateway:local
+    environment:
+      CRM_API_URL: http://api:8080/api
+    ports:
+      - "4000:4000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  portal:
+    build: ./portal
+    image: rex-crm-portal:local
+    environment:
+      GATEWAY_URL: http://gateway:4000/graphql
+    ports:
+      - "3000:3000"
+    depends_on:
+      gateway:
         condition: service_healthy
 
 volumes:
