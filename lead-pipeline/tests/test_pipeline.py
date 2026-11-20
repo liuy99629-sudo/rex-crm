@@ -201,3 +201,11 @@ def test_lambda_handler_reads_s3_and_ssm(monkeypatch):
     assert out["results"][0]["status"] == "processed"
     assert fake.requests[0]["auth"] == "Bearer secret-tok"
     handler._deps.cache_clear()
+
+
+def test_without_a_crm_the_lead_is_extracted_and_recorded(ledger):
+    out = process_email(sample("01-rea-epping.eml"), "inbox/01", ledger, RuleExtractor(), None)
+
+    assert out.status == "extracted"
+    item = ledger.get("rea-20261119-0001@realestate.com.au")
+    assert item["status"] == "extracted" and "mia.chen@example.com" in item["details"]

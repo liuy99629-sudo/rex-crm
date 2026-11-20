@@ -1,27 +1,24 @@
-# Databricks Asset Bundle: run the same job on a Databricks cluster instead of the Kubernetes CronJob.
-#   databricks bundle validate && databricks bundle deploy -t dev && databricks bundle run rex_analytics -t dev
-# Not exercised in this repo's CI (needs a workspace). Secrets come from a Databricks secret scope "rex":
-#   databricks secrets create-scope rex
-#   databricks secrets put-secret rex crm_db_password   (and snowflake_password if using Snowflake)
+# Databricks Asset Bundle: the same analytics job on Databricks serverless compute (works on Free Edition).
+#
+# The workspace cannot reach the CRM database, so the job reads a snapshot of the source tables
+# (only the whitelisted columns: no client names, contact details or notes) from a Unity Catalog
+# volume and writes the marts as Delta tables workspace.rex_crm.<mart>.
+#
+#   1. Snapshot locally:   docker compose --profile analytics run --rm -e EXPORT_RAW_PATH=/data/warehouse/raw analytics
+#   2. Upload:             see analytics/README.md (databricks fs cp -r ... dbfs:/Volumes/workspace/rex_crm/raw)
+#   3. Deploy and run:     databricks bundle deploy -p rex && databricks bundle run rex_analytics -p rex
 bundle:
   name: rex-crm-analytics
 
 variables:
-  crm_jdbc_url:
-    description: JDBC URL of the CRM database, reachable from the workspace (e.g. through Private Link)
-  spark_version:
-    description: Databricks Runtime version string for the job cluster
-    default: 16.4.x-scala2.13
-  node_type_id:
-    description: Worker instance type
-    default: m6i.large
+  source_path:
+    description: Volume path holding the raw snapshot
+    default: /Volumes/workspace/rex_crm/raw
 
 targets:
   dev:
     mode: development
     default: true
-  prod:
-    mode: production
 
 resources:
   jobs:
@@ -30,20 +27,17 @@ resources:
       schedule:
         quartz_cron_expression: "0 0 3 * * ?"
         timezone_id: Australia/Sydney
+        pause_status: PAUSED # nightly once a snapshot upload is automated; run on demand until then
       tasks:
         - task_key: build_marts
-          spark_python_task:
-            python_file: ./run_job.py
-          libraries:
-            - pypi: { package: "snowflake-connector-python[pandas]>=3.12,<6" }
-          new_cluster:
-            spark_version: ${var.spark_version}
-            node_type_id: ${var.node_type_id}
-            num_workers: 1
-            spark_env_vars:
-              CRM_JDBC_URL: ${var.crm_jdbc_url}
-              CRM_DB_USER: rexcrm
-              CRM_DB_PASSWORD: "{{secrets/rex/crm_db_password}}"
-              # On Databricks, keep the marts in the lakehouse and in the CRM; add snowflake if used.
-              SINKS: postgres,parquet
-              PARQUET_PATH: dbfs:/rex-crm/warehouse
+          # A notebook task that imports rex_analytics from a Unity Catalog volume: on Free Edition
+          # serverless, workspace files can fail to read (EIO). Upload the package first (README).
+          notebook_task:
+            notebook_path: ./databricks_notebook.py
+            base_parameters:
+              SOURCE: parquet
+              SOURCE_PATH: ${var.source_path}
+              SINKS: delta
+              DELTA_CATALOG: workspace
+              DELTA_SCHEMA: rex_crm
+              CODE_PATH: /Volumes/workspace/rex_crm/code
