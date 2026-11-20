@@ -21,6 +21,9 @@ Git 仓库 --任务/代码--> AI 编码智能体 --提交 PR--> CI 构建 --推�
 
 ## 快速开始（需要 Docker Desktop）
 
+> 在一台新电脑上从零安装（软件、换行符设置、`.env`、各模块、云端登录、要手动带走的密钥）：
+> 见 [SETUP-ON-NEW-PC.md](SETUP-ON-NEW-PC.md)。云端部署了什么、怎么删除：见 [docs/CLOUD-DEPLOY.md](docs/CLOUD-DEPLOY.md)。
+
 ```bash
 docker compose up --build          # 第一次会下载镜像并安装 PHP 依赖，需要几分钟
 docker compose exec api php artisan db:seed     # 灌入演示数据（另开一个终端）
