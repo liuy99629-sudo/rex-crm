@@ -7,18 +7,18 @@
 
 ---
 
-## 0. 先从旧电脑带走的东西（git 里没有，故意不放）
+## 0. 旧电脑上的东西：什么都不用带
 
-| 东西 | 在旧电脑的位置 | 什么时候需要 |
-|---|---|---|
-| Snowflake 私钥文件夹 | `C:\Users\<你>\.rex-secrets\`（`snowflake_rsa_key.p8` 等 5 个文件） | 只有要把分析结果写进 Snowflake 时 |
-| `.env` 里填过的值（如果填过） | 仓库根目录 `.env` | 只有用了 Claude API key / 线索管道 token / Snowflake 时 |
-| 各云账号的登录信息 | 你的密码管理器 | AWS、Databricks、Snowflake、GitHub |
+| 东西 | 新电脑上怎么办 |
+|---|---|
+| Snowflake 私钥 | **不带**。在新电脑运行一条命令生成新的（第 9c 步），再在 Snowflake 网页里粘贴运行一行 SQL |
+| `.env` | 不用带：旧电脑从没填过值。新电脑从 `.env.example` 复制（第 3 步） |
+| 数据库数据 | 不用带：新电脑写入演示数据（第 4 步） |
+| AWS、Databricks 登录 | 新电脑各登录一次，浏览器里点确认（第 9a、9b 步）。云上已部署的东西不受影响 |
+| 账号、工作区地址、用户名 | 都写在本文第 9 步里 |
 
-私钥用 U 盘或密码管理器的安全附件传，**不要**发邮件、不要放进仓库、不要上传网盘公开链接。
-不想传私钥也可以：在新电脑重新生成一对（见第 9 步），再在 Snowflake 里换上新的公钥。
-
-数据库里的数据不会跟着代码走：新电脑上用第 4 步的演示数据重新生成。
+为什么私钥不放进 GitHub：这个仓库是**公开**的，任何人拿到私钥就能登录你的 Snowflake。
+所以私钥只留在各自电脑的 `C:\Users\<你>\.rex-secrets\`，`.gitignore` 也挡住了 `*.p8`、`*.pem`。
 
 ---
 
@@ -317,24 +317,19 @@ cd analytics && databricks bundle deploy -p rex && databricks bundle run rex_ana
 - 账号 `BIQXSYY-QW95202`，用户 `LIUY99629`，仓库 `REX_WH`（XS，60 秒自动挂起）。
 - 用密钥对登录，不用密码。
 
-**方式 A：沿用旧私钥。** 把旧电脑的 `.rex-secrets` 文件夹复制到新电脑 `C:\Users\<你>\.rex-secrets\`。
+**第一步：在新电脑生成密钥**（在仓库目录的 PowerShell 里运行，只需 Git 已安装）：
 
-**方式 B：生成新私钥**（Git Bash，Git 自带 openssl）：
-
-```bash
-mkdir -p ~/.rex-secrets && cd ~/.rex-secrets
-openssl genrsa 2048 | openssl pkcs8 -topk8 -nocrypt -out snowflake_rsa_key.p8
-openssl rsa -in snowflake_rsa_key.p8 -pubout -out snowflake_rsa_key.pub
-grep -v "PUBLIC KEY" snowflake_rsa_key.pub | tr -d '\n' > pub_oneline.txt
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\new-snowflake-key.ps1
 ```
 
-然后在 Snowflake 网页（Projects → Worksheets）里**只放这一条**语句并运行，把 `<...>` 换成 `pub_oneline.txt` 的内容：
+它会把私钥放进 `C:\Users\<你>\.rex-secrets\`（只有你的 Windows 账号能读），
+然后打印一行 `ALTER USER LIUY99629 SET RSA_PUBLIC_KEY_2 = '...';`，并**自动复制到剪贴板**。
 
-```sql
-ALTER USER LIUY99629 SET RSA_PUBLIC_KEY = '<pub_oneline.txt 的内容>';
-```
-
-（编辑器里有多条语句时，Run 只执行光标所在那条，所以只放一条。）
+**第二步：在 Snowflake 换上新公钥。** 打开 https://app.snowflake.com 登录，进入 Projects → Worksheets，
+新建一个工作表，`Ctrl+V` 粘贴（编辑器里**只放这一行**），点 Run。
+（编辑器里有多条语句时，Run 只执行光标所在那条。）
+新公钥放在第 2 个位置（`RSA_PUBLIC_KEY_2`），旧电脑的密钥在第 1 个位置，两台电脑都能继续用。
 
 运行分析并写入 Snowflake（PowerShell）：
 
