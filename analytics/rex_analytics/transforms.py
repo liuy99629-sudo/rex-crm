@@ -153,8 +153,11 @@ def stage_velocity(deals: DataFrame, activities: DataFrame) -> DataFrame:
     )
 
 
-def build_marts(tables: dict[str, DataFrame]) -> dict[str, DataFrame]:
-    fact = fact_deals(tables["deals"], tables["contacts"], tables["properties"], tables["users"], tables["deal_activities"]).cache()
+def build_marts(tables: dict[str, DataFrame], cache: bool = True) -> dict[str, DataFrame]:
+    """cache=False on Databricks serverless, which does not support DataFrame.cache()."""
+    fact = fact_deals(tables["deals"], tables["contacts"], tables["properties"], tables["users"], tables["deal_activities"])
+    if cache:
+        fact = fact.cache()
     return {
         "fact_deals": fact,
         "suburb_market": suburb_market(fact, tables["properties"]),
