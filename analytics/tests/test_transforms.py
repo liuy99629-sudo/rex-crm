@@ -157,3 +157,19 @@ def test_snowflake_sink_bootstraps_once_uppercases_and_overwrites(spark):
     assert calls["writes"][0] == ("REX_LEAD_FUNNEL", ["LEAD_SOURCE", "DEALS"], 1, True, True, True)
     assert len(calls["sql"]) == 5  # bootstrap ran once, not per write
     assert "AUTO_SUSPEND = 60" in calls["sql"][0] and calls["sql"][2] == "CREATE SCHEMA IF NOT EXISTS REX_CRM.ANALYTICS"
+
+
+def test_snowflake_key_file_is_loaded_into_memory(tmp_path):
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    pem = rsa.generate_private_key(public_exponent=65537, key_size=2048).private_bytes(
+        serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()
+    )
+    path = tmp_path / "key.p8"
+    path.write_bytes(pem)
+
+    sink = SnowflakeSink({"account": "acme", "private_key_file": str(path)}, connector=(None, None))
+
+    assert "private_key_file" not in sink._kwargs
+    assert isinstance(sink._kwargs["private_key"], bytes) and sink._kwargs["private_key"][:1] == b"\x30"  # DER sequence

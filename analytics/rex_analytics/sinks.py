@@ -42,10 +42,28 @@ class ParquetSink:
         df.write.mode("overwrite").parquet(f"{self._base}/{mart}")
 
 
+def load_private_key(path: str) -> bytes:
+    """PEM key file -> DER bytes for the connector's `private_key` argument. Passing the key itself
+    (not the file) avoids the connector's file-permission check, which every Windows folder mounted
+    into Docker fails (it always looks group/world-writable there)."""
+    from cryptography.hazmat.primitives import serialization
+
+    with open(path, "rb") as f:
+        key = serialization.load_pem_private_key(f.read(), password=None)
+    return key.private_bytes(
+        encoding=serialization.Encoding.DER,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+
+
 class SnowflakeSink:
     name = "snowflake"
 
-    def __init__(self, connect_kwargs: dict[str, str], connector=None) -> None:
+    def __init__(self, connect_kwargs: dict, connector=None) -> None:
+        connect_kwargs = dict(connect_kwargs)
+        if "private_key_file" in connect_kwargs:
+            connect_kwargs["private_key"] = load_private_key(connect_kwargs.pop("private_key_file"))
         self._kwargs = connect_kwargs
         self._connector = connector  # injectable for tests
         self._ready = False
