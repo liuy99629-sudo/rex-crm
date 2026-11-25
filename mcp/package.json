@@ -1,0 +1,29 @@
+{
+  "name": "rex-crm-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MCP server exposing Rex CRM to Claude (Claude Code, Claude Desktop) through the CRM's REST API",
+  "type": "module",
+  "bin": {
+    "rex-crm-mcp": "dist/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "login": "node dist/login.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1"
+  }
+}

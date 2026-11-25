@@ -1,0 +1,58 @@
+# "Ask Rex" AI assistant (FastAPI). The Ingress routes /api/ai here; the image tag is set by CI.
+# Needs ANTHROPIC_API_KEY in the rex-crm-secrets Secret (see secret.example.yaml); without it
+# /api/ai/ask answers 503 and the rest of the CRM is unaffected.
+apiVersion: v1
+kind: Service
+metadata:
+  name: rex-ai
+spec:
+  selector:
+    app: rex-ai
+  ports:
+    - port: 80
+      targetPort: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rex-ai
+spec:
+  # One replica: it also runs the background re-index loop (embedding is idempotent, so a
+  # second replica would only duplicate work, not corrupt the index).
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rex-ai
+  template:
+    metadata:
+      labels:
+        app: rex-ai
+    spec:
+      containers:
+        - name: ai
+          image: rex-crm-ai
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: rex-crm-secrets, key: DB_PASSWORD }
+            - name: DATABASE_URL
+              value: postgresql://rexcrm:$(DB_PASSWORD)@postgres:5432/rexcrm
+            - name: LARAVEL_URL
+              value: http://rex-api
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef: { name: rex-crm-secrets, key: ANTHROPIC_API_KEY, optional: true }
+            - name: REINDEX_INTERVAL
+              value: "300"
+          startupProbe:
+            httpGet: { path: /api/ai/health, port: 8000 }
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            httpGet: { path: /api/ai/health, port: 8000 }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 768Mi }
+            limits: { memory: 1536Mi }

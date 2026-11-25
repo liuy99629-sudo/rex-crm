@@ -1,0 +1,24 @@
+{
+  "name": "rex-crm-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Public GraphQL API for the Rex CRM listings portal",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "graphql": "^17.1.0",
+    "graphql-yoga": "^6.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1"
+  }
+}

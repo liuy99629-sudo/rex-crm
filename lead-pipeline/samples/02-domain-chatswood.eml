@@ -1,0 +1,18 @@
+From: Domain <notifications@domain.com.au>
+To: enquiries@rexrealty.example
+Subject: Domain enquiry for Pet-friendly apartment near Chatswood station
+Message-ID: <dom-20261119-0042@domain.com.au>
+Date: Thu, 19 Nov 2026 10:03:00 +1100
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body><p>Hi Rex Realty,</p>
+<p>You have a new enquiry on <b>Domain</b>.</p>
+<table>
+<tr><td>Listing:</td><td>Pet-friendly apartment near Chatswood station</td></tr>
+<tr><td>Name:</td><td>Oliver Grant</td></tr>
+<tr><td>Email:</td><td>oliver.grant@example.com</td></tr>
+<tr><td>Phone:</td><td>0433 222 777</td></tr>
+</table>
+<p>Message: Is a small dog allowed in the building? Could I get the strata report?</p>
+</body></html>

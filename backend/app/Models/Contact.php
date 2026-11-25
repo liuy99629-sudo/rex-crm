@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ContactType;
+use App\Services\PipelineService;
 use Database\Factories\ContactFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -27,6 +28,16 @@ class Contact extends Model
             'budget_min' => 'integer',
             'budget_max' => 'integer',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        // The dashboard counts contacts, and deleting one cascades to its deals in the database
+        // (no Deal events fire): drop the cached pipeline board / dashboard numbers.
+        $flush = fn () => app(PipelineService::class)->flush();
+
+        static::saved($flush);
+        static::deleted($flush);
     }
 
     public function agent(): BelongsTo

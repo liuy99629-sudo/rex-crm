@@ -130,6 +130,88 @@ export interface DashboardStats {
   won_value_this_month: number
 }
 
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface AiToolCall {
+  tool: string
+  input: Record<string, unknown>
+  error: boolean
+}
+
+export interface AiAnswer {
+  answer: string
+  tool_calls: AiToolCall[]
+  model_calls: number
+}
+
+export interface Match {
+  id: number
+  name: string
+  score: number // 0..100
+  budget_score: number
+  semantic_score: number
+  reasons: string[]
+  existing_deal: { deal_id: number; property_id: number; stage: DealStage } | null
+  detail: Record<string, string | number | null>
+}
+
+export interface MatchResult {
+  matches: Match[]
+}
+
+export interface WinScore {
+  deal_id: number
+  probability: number // 0..1
+  drivers: { label: string; effect: 'up' | 'down' }[]
+}
+
+export interface WinScores {
+  model: { type: string; trained_on: { simulated: number; real_closed_deals: number }; trained_at: string }
+  deals: WinScore[]
+}
+
+/** Marts built nightly by the Spark job (analytics/). Numbers may arrive as strings from the DB. */
+export interface Insights {
+  available: boolean
+  refreshed_at?: string | null
+  suburb_market?: {
+    suburb: string
+    property_type: string
+    listings: number
+    on_market: number
+    median_asking: number | null
+    avg_price_per_bedroom: number | null
+    deals_won: number
+    won_value: number
+    avg_days_to_close: number | null
+  }[]
+  lead_funnel?: {
+    lead_source: string
+    deals: number
+    reached_inspection: number
+    reached_offer: number
+    won: number
+    lost: number
+    won_value: number
+    win_rate: number | null
+    inspection_rate: number | null
+  }[]
+  agent_performance?: {
+    agent: string
+    month: string
+    new_deals: number
+    won: number
+    lost: number
+    won_value: number
+    win_rate: number | null
+    avg_days_to_close: number | null
+  }[]
+  stage_velocity?: { stage: string; transitions: number; avg_days: number | null }[]
+}
+
 export interface Paginated<T> {
   data: T[]
   meta: { current_page: number; last_page: number; per_page: number; total: number }

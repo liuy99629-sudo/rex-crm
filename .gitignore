@@ -5,3 +5,13 @@ vendor/
 .DS_Store
 *.log
 *.tar.gz
+.next/
+*.tsbuildinfo
+.aws-sam/
+__pycache__/
+.pytest_cache/
+
+# Private keys never go in the repo (see scripts/new-snowflake-key.ps1)
+*.p8
+*.pem
+.rex-secrets/

@@ -123,6 +123,60 @@ class DealPipelineTest extends TestCase
             ->assertJsonCount(1, 'activities');
     }
 
+    public function test_can_delete_a_note(): void
+    {
+        $deal = Deal::factory()->create();
+        $note = $deal->activities()->create(['user_id' => $this->user->id, 'type' => 'note', 'body' => 'Typo']);
+
+        $this->deleteJson("/api/deals/{$deal->id}/notes/{$note->id}")->assertNoContent();
+
+        $this->assertDatabaseMissing('deal_activities', ['id' => $note->id]);
+    }
+
+    public function test_cannot_delete_stage_change_entry_or_another_deals_note(): void
+    {
+        $deal = Deal::factory()->create();
+        $other = Deal::factory()->create();
+        $stageChange = $deal->activities()->create(['type' => 'stage_change', 'body' => 'Stage changed from Lead to Offer']);
+        $otherNote = $other->activities()->create(['type' => 'note', 'body' => 'Not yours']);
+
+        $this->deleteJson("/api/deals/{$deal->id}/notes/{$stageChange->id}")->assertForbidden();
+        $this->deleteJson("/api/deals/{$deal->id}/notes/{$otherNote->id}")->assertNotFound();
+
+        $this->assertDatabaseCount('deal_activities', 2);
+    }
+
+    public function test_deleting_contact_refreshes_cached_dashboard_and_board(): void
+    {
+        $contact = Contact::factory()->create();
+        Deal::factory()->stage(DealStage::Lead)->create(['contact_id' => $contact->id, 'value' => 1000]);
+
+        // Warm the caches.
+        $this->getJson('/api/dashboard')->assertJsonPath('data.open_deals', 1);
+        $this->getJson('/api/pipeline')->assertOk();
+
+        // Its deals are removed by the database cascade, so no Deal event fires.
+        $this->deleteJson("/api/contacts/{$contact->id}")->assertNoContent();
+
+        $this->getJson('/api/dashboard')
+            ->assertJsonPath('data.contacts', 0)
+            ->assertJsonPath('data.open_deals', 0)
+            ->assertJsonPath('data.pipeline_value', 0);
+        $lead = collect($this->getJson('/api/pipeline')->json('data'))->firstWhere('stage', 'lead');
+        $this->assertSame(0, $lead['count']);
+    }
+
+    public function test_property_status_change_refreshes_cached_dashboard(): void
+    {
+        $property = Property::factory()->create(['status' => 'active']);
+
+        $this->getJson('/api/dashboard')->assertJsonPath('data.active_listings', 1);
+
+        $property->update(['status' => 'withdrawn']);
+
+        $this->getJson('/api/dashboard')->assertJsonPath('data.active_listings', 0);
+    }
+
     public function test_dashboard_stats(): void
     {
         Deal::factory()->stage(DealStage::Lead)->create(['value' => 1000]);

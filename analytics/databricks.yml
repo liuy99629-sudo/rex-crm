@@ -1,0 +1,43 @@
+# Databricks Asset Bundle: the same analytics job on Databricks serverless compute (works on Free Edition).
+#
+# The workspace cannot reach the CRM database, so the job reads a snapshot of the source tables
+# (only the whitelisted columns: no client names, contact details or notes) from a Unity Catalog
+# volume and writes the marts as Delta tables workspace.rex_crm.<mart>.
+#
+#   1. Snapshot locally:   docker compose --profile analytics run --rm -e EXPORT_RAW_PATH=/data/warehouse/raw analytics
+#   2. Upload:             see analytics/README.md (databricks fs cp -r ... dbfs:/Volumes/workspace/rex_crm/raw)
+#   3. Deploy and run:     databricks bundle deploy -p rex && databricks bundle run rex_analytics -p rex
+bundle:
+  name: rex-crm-analytics
+
+variables:
+  source_path:
+    description: Volume path holding the raw snapshot
+    default: /Volumes/workspace/rex_crm/raw
+
+targets:
+  dev:
+    mode: development
+    default: true
+
+resources:
+  jobs:
+    rex_analytics:
+      name: rex-crm-analytics
+      schedule:
+        quartz_cron_expression: "0 0 3 * * ?"
+        timezone_id: Australia/Sydney
+        pause_status: PAUSED # nightly once a snapshot upload is automated; run on demand until then
+      tasks:
+        - task_key: build_marts
+          # A notebook task that imports rex_analytics from a Unity Catalog volume: on Free Edition
+          # serverless, workspace files can fail to read (EIO). Upload the package first (README).
+          notebook_task:
+            notebook_path: ./databricks_notebook.py
+            base_parameters:
+              SOURCE: parquet
+              SOURCE_PATH: ${var.source_path}
+              SINKS: delta
+              DELTA_CATALOG: workspace
+              DELTA_SCHEMA: rex_crm
+              CODE_PATH: /Volumes/workspace/rex_crm/code

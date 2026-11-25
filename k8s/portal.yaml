@@ -1,0 +1,81 @@
+# Public listings website (Next.js) and the GraphQL gateway behind it. Image tags are set by CI.
+# The portal calls the gateway inside the cluster; the gateway calls Laravel's /api/public/* endpoints.
+apiVersion: v1
+kind: Service
+metadata:
+  name: rex-portal
+spec:
+  selector:
+    app: rex-portal
+  ports:
+    - port: 80
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rex-portal
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rex-portal
+  template:
+    metadata:
+      labels:
+        app: rex-portal
+    spec:
+      containers:
+        - name: portal
+          image: rex-crm-portal
+          ports:
+            - containerPort: 3000
+          env:
+            - name: GATEWAY_URL
+              value: http://rex-gateway/graphql
+          readinessProbe:
+            httpGet: { path: /, port: 3000 }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 384Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rex-gateway
+spec:
+  selector:
+    app: rex-gateway
+  ports:
+    - port: 80
+      targetPort: 4000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rex-gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rex-gateway
+  template:
+    metadata:
+      labels:
+        app: rex-gateway
+    spec:
+      containers:
+        - name: gateway
+          image: rex-crm-gateway
+          ports:
+            - containerPort: 4000
+          env:
+            - name: CRM_API_URL
+              value: http://rex-api/api
+          readinessProbe:
+            httpGet: { path: "/graphql?query=%7B__typename%7D", port: 4000 }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { memory: 256Mi }
