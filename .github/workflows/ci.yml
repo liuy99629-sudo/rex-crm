@@ -186,7 +186,8 @@ jobs:
 
   images:
     name: Build and push images
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Skipped until GCP is set up (docs/ai-workflow.md), so main stays green without a cluster.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.GCP_PROJECT_ID != ''
     needs: [backend, frontend, ai, mcp, portal, analytics]
     runs-on: ubuntu-latest
     env:
