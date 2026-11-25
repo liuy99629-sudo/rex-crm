@@ -77,16 +77,16 @@ cd $HOME
 ```
 
 ```powershell
-git clone -b feat/cloud-deploy https://github.com/liuy99629-sudo/rex-crm.git
+git clone https://github.com/liuy99629-sudo/rex-crm.git
 ```
 
 ```powershell
 cd rex-crm
 ```
 
-关于分支：
-- `feat/cloud-deploy` 包含**全部**功能（6 个模块 + 云端部署配置），现在用它。
-- 等 PR #10、#11 合并进 `main` 之后，直接 `git clone https://github.com/liuy99629-sudo/rex-crm.git`（默认就是 `main`）。
+说明：
+- 默认拉的是 `main` 分支，包含**全部**功能（6 个模块 + 云端部署配置）。
+- 以后开发新功能，从 `main` 开新分支：`git switch -c feat/功能名`，开 PR，由人审核合并。
 - 仓库里有 `.gitattributes` 固定为 LF，所以就算忘了上面那条设置，新 clone 的文件也是对的。
 
 确认：`git status` 显示 *working tree clean*。
