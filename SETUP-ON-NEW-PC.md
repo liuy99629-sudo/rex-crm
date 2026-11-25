@@ -363,6 +363,6 @@ docker compose --profile analytics run --rm -v "$env:USERPROFILE\.rex-secrets:/s
 
 ## 11. 开发规范（在新电脑上继续开发前看一眼）
 
-- 项目约定和命令在 [CLAUDE.md](CLAUDE.md)，功能介绍在 [README.md](README.md)。
+- 项目约定和命令在 [CLAUDE.md](CLAUDE.md)，功能介绍在 [README.zh-CN.md](README.zh-CN.md)（中文）和 [README.md](README.md)（英文）。
 - 在分支上开发，开 PR，CI 通过后由人合并。**不要直接推 `main`**。
 - 不要提交 `.env`、`node_modules`、`vendor`、私钥或任何 token。
