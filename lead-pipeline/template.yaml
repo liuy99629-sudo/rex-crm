@@ -8,13 +8,23 @@ Description: >
 Parameters:
   CrmApiUrl:
     Type: String
-    Description: CRM API base URL, e.g. https://crm.example.com/api
+    Default: none
+    Description: CRM API base URL, e.g. https://crm.example.com/api ("none" = no CRM yet; leads are only extracted and recorded)
   CrmTokenParameterName:
     Type: String
     Default: /rex-crm/lead-pipeline-token
     Description: >
       SSM Parameter Store SecureString holding a token from `php artisan rex:integration-token lead-pipeline`
       (create it once, outside this template).
+  Extractor:
+    Type: String
+    Default: claude
+    AllowedValues: [claude, rules]
+    Description: claude = Claude in Amazon Bedrock (billed per token); rules = labelled-field parser (free)
+  ReservedConcurrency:
+    Type: Number
+    Default: 0
+    Description: Max parallel Lambda runs (0 = no reservation; needs a concurrency quota above 10)
   BedrockModel:
     Type: String
     Default: anthropic.claude-opus-5-5
@@ -22,6 +32,9 @@ Parameters:
     Type: String
     Default: ap-southeast-2
     Description: Region of the bedrock-mantle endpoint (Sydney supports the global endpoint).
+
+Conditions:
+  HasReservedConcurrency: !Not [!Equals [!Ref ReservedConcurrency, 0]]
 
 Globals:
   Function:
@@ -35,6 +48,8 @@ Resources:
   InboundMailBucket:
     Type: AWS::S3::Bucket
     Properties:
+      # Fixed name, so the function's policy can name it without a circular reference to the bucket.
+      BucketName: !Sub "rex-inbound-mail-${AWS::AccountId}-${AWS::Region}"
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
@@ -88,7 +103,9 @@ Resources:
       CodeUri: .
       Handler: leads.handler.lambda_handler
       Description: Extract leads from inbound email and post them to Rex CRM
-      ReservedConcurrentExecutions: 5 # gentle on the CRM and on Bedrock quotas
+      # Cap parallel runs to be gentle on the CRM and Bedrock quotas. New accounts have only 10
+      # concurrent executions in total and must keep 10 unreserved, so it is off unless set.
+      ReservedConcurrentExecutions: !If [HasReservedConcurrency, !Ref ReservedConcurrency, !Ref AWS::NoValue]
       DeadLetterQueue: { Type: SQS, TargetArn: !GetAtt LeadDeadLetterQueue.Arn }
       Environment:
         Variables:
@@ -97,11 +114,15 @@ Resources:
           CRM_TOKEN_PARAM: !Ref CrmTokenParameterName
           BEDROCK_MODEL: !Ref BedrockModel
           BEDROCK_REGION: !Ref BedrockRegion
-          EXTRACTOR: claude
+          EXTRACTOR: !Ref Extractor
       Policies:
-        - S3ReadPolicy: { BucketName: !Ref InboundMailBucket }
+        - S3ReadPolicy: { BucketName: !Sub "rex-inbound-mail-${AWS::AccountId}-${AWS::Region}" }
         - DynamoDBCrudPolicy: { TableName: !Ref LeadLedger }
-        - SSMParameterReadPolicy: { ParameterName: !Select [1, !Split ["/", !Ref CrmTokenParameterName, 2]] }
+        - Statement:
+            # Read only the CRM token parameter (its name starts with "/", so it follows "parameter" directly).
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${CrmTokenParameterName}"
         - Statement:
             # Claude in Amazon Bedrock (bedrock-mantle). Narrow Resource to the model ARNs you enable.
             - Effect: Allow

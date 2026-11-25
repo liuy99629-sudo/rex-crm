@@ -1,80 +1,126 @@
 # Rex CRM
 
-房产中介 CRM：管理**客户**、**房源**和**销售管道**。按架构图实现：
+**English** | [中文](README.zh-CN.md)
+
+A CRM for real-estate agencies: **contacts** (clients), **properties** (listings) and the **sales pipeline**,
+with an AI assistant, a public listings website, automatic lead intake from email, and analytics.
+
+## Architecture
 
 ```
-浏览器 (React) --HTTPS--> 负载均衡 (Ingress) --路由--> Laravel API --读写--> PostgreSQL
-                                                         |入队/缓存
-                                                         v
-                                                       Redis --取任务--> 队列 Worker --写库--> PostgreSQL
-Git 仓库 --任务/代码--> AI 编码智能体 --提交 PR--> CI 构建 --推送镜像--> 镜像仓库 --部署--> GKE
+                       ┌──────────── Browser ────────────┐
+                       │                                 │
+            Agents: CRM  :8080                 Buyers: listings  :3000
+                       │                                 │
+             ┌─────────▼─────────┐             ┌─────────▼─────────┐
+             │ web (React)       │             │ portal (Next.js)  │
+             │ + nginx proxy     │             │ public website    │
+             └───┬───────────┬───┘             └─────────┬─────────┘
+           /api/ │           │ /api/ai/                  │ GraphQL
+                 │           │                 ┌─────────▼─────────┐
+                 │           │                 │ gateway (GraphQL) │
+                 │           │                 └─────────┬─────────┘
+                 ▼           ▼                           │ /api/public/*
+       ┌──────────────┐  ┌──────────────────┐            │
+       │ api (Laravel)│◄─┤ ai (Python)      │            │
+       │ core business│◄─┼──────────────────┼────────────┘
+       └──┬────────┬──┘  │ assistant, match,│
+          │        │     │ win probability  │
+          │        │     └────────┬─────────┘
+          │        └─► worker (queued jobs)
+          ▼                       ▼
+   PostgreSQL (data + pgvector)       Redis (cache + queue)
+
+  Into the CRM:  email lead pipeline (AWS Lambda), MCP server (Claude operates the CRM)
+  Out of the CRM: PySpark analytics → Postgres / Parquet / Databricks / Snowflake
 ```
 
-| 目录 | 内容 |
-|------|------|
-| `backend/` | Laravel 11 API（Sanctum 令牌认证、PostgreSQL、Redis 队列和缓存） |
-| `frontend/` | React 19 + TypeScript + Vite（登录、仪表盘、客户、房源、可拖拽销售管道看板） |
-| `compose.yaml` | 本地一键运行：postgres、redis、api、worker、web |
-| `k8s/` | GKE 部署清单（kustomize）：Ingress、API、Worker、Web、Redis、PostgreSQL |
-| `.github/workflows/ci.yml` | 测试 → 构建镜像 → 推送 Artifact Registry → 部署 GKE |
-| `CLAUDE.md`、`docs/ai-workflow.md` | AI 智能体开发规范和流程（图下半部分） |
+## Modules
 
-## 快速开始（需要 Docker Desktop）
+| Folder | Tech | What it does |
+|---|---|---|
+| [`backend/`](backend/) | Laravel 11, Sanctum, PostgreSQL, Redis | Core API: contacts, properties, deals, pipeline board, dashboard; public listing and enquiry endpoints; lead integration endpoint (limited tokens) |
+| [`frontend/`](frontend/) | React 19, TypeScript, Vite, TanStack Query | Agent UI: dashboard, drag-and-drop pipeline, contacts, properties, buyer matches, Ask Rex assistant, Insights |
+| [`ai/`](ai/) | FastAPI, LangGraph, Claude, pgvector, PyTorch | Ask Rex agent (calls tools to query the CRM), RAG semantic search, buyer ↔ listing matching, explained deal win probability |
+| [`mcp/`](mcp/) | TypeScript, MCP SDK | Lets Claude Code / Claude Desktop query and update the CRM in plain language (9 tools) |
+| [`portal/`](portal/), [`gateway/`](gateway/) | Next.js 16, GraphQL Yoga | Public listings website: browse, filter, similar listings, inspection enquiries (become CRM leads) |
+| [`lead-pipeline/`](lead-pipeline/) | AWS SAM, Lambda, S3, DynamoDB, SQS, Bedrock | Portal enquiry emails → extracted lead → CRM; idempotent, retried, with a dead-letter queue |
+| [`analytics/`](analytics/) | PySpark, Delta, Databricks, Snowflake | Nightly marts: deal facts, suburb market, lead-source funnel, agent performance, stage velocity |
+| [`k8s/`](k8s/) | Kubernetes, kustomize | GKE manifests |
+| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | GitHub Actions | Tests and builds for every module → push images → deploy to GKE and the AWS lead pipeline |
+
+More detail: [ai](ai/README.md), [mcp](mcp/README.md), [portal + gateway](portal/README.md), [lead-pipeline](lead-pipeline/README.md), [analytics](analytics/README.md).
+
+## Quick start (needs Docker Desktop)
+
+> Setting up a new computer from scratch (tools, line endings, `.env`, modules, cloud sign-in):
+> see [SETUP-ON-NEW-PC.md](SETUP-ON-NEW-PC.md) (in Chinese).
 
 ```bash
-docker compose up --build          # 第一次会下载镜像并安装 PHP 依赖，需要几分钟
-docker compose exec api php artisan db:seed     # 灌入演示数据（另开一个终端）
+docker compose up --build -d                    # first build takes 10–20 minutes
+docker compose exec api php artisan db:seed     # load demo data
 ```
 
-打开 http://localhost:8080 ，登录 `admin@rexcrm.test` / `password`。
+| URL | What |
+|---|---|
+| http://localhost:8080 | CRM, sign in as `admin@rexcrm.test` / `password` |
+| http://localhost:3000 | Public listings website |
+| http://localhost:4000/graphql | GraphQL gateway |
+| http://localhost:8000/api/health | Laravel API |
+| http://localhost:8001/api/ai/health | AI service |
 
-- API 直连：http://localhost:8000/api/health
-- 在 VS Code 里：`Ctrl+Shift+P` → `Tasks: Run Task`，已配置好 up / down / seed / 测试等任务
-- 只改前端时：`cd frontend && npm install && npm run dev`（http://localhost:5173，自动把 `/api` 代理到 `localhost:8000`）
+- The Ask Rex assistant needs `ANTHROPIC_API_KEY` in `.env` (billed per use). Matching and win probability do not.
+- VS Code: `Ctrl+Shift+P` → `Tasks: Run Task` has up / down / seed / test tasks.
+- Frontend only: `cd frontend && npm install && npm run dev` (http://localhost:5173, proxies `/api` to `localhost:8000`).
 
-## 验证“队列 Worker”真的在工作
-
-1. 在销售管道页面把一张卡片拖到另一列，界面立即更新（API 已保存阶段）。
-2. 点开这张卡片，约 1 秒后“Activity”里出现 *Stage changed from X to Y*。这条记录由 Worker 从 Redis 取任务后写入数据库。
-3. 把卡片拖到 **Won**：关联房源会被 Worker 自动标记为 *Sold*。
-4. `docker compose logs -f worker` 可看到任务执行日志。
-
-## 测试
+Optional services:
 
 ```bash
-docker compose --profile test run --rm test     # 后端（SQLite 内存库，不需要其他服务）
-cd frontend && npm test                           # 前端
+docker compose --profile aws up -d                     # local email lead pipeline (LocalStack for S3 + DynamoDB)
+docker compose --profile analytics run --rm analytics  # PySpark analytics, shown on the Insights page
 ```
 
-## API 速览（均在 `/api` 下，除登录和健康检查外需要 `Authorization: Bearer <token>`）
+## Tests
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | `/auth/login` | 登录，返回 token |
-| GET | `/auth/me`、POST `/auth/logout` | 当前用户 / 退出 |
-| GET/POST/PUT/DELETE | `/contacts`、`/contacts/{id}` | 客户（支持 `q`、`type`、`page`） |
-| GET/POST/PUT/DELETE | `/properties`、`/properties/{id}` | 房源（支持 `q`、`status`、`type`、`min_price`、`max_price`） |
-| GET/POST/PUT/DELETE | `/deals`、`/deals/{id}` | 交易 |
-| PATCH | `/deals/{id}/stage` | 换阶段（同步保存 + 入队 Worker 任务） |
-| POST | `/deals/{id}/notes` | 添加备注 |
-| GET | `/pipeline` | 看板数据（按阶段分组，Redis 缓存 5 分钟，交易变更时自动清缓存） |
-| GET | `/dashboard` | 仪表盘统计（缓存 1 分钟） |
+```bash
+docker compose --profile test run --rm test                 # backend
+docker compose --profile test run --rm ai-test              # AI service
+docker compose --profile test run --rm lead-pipeline-test   # email lead pipeline
+docker compose --profile test run --rm analytics-test       # analytics
+cd frontend && npm test     # same for gateway, portal, mcp
+```
 
-交易阶段：`lead → contacted → inspection → offer → negotiation → won / lost`。
+## API overview
 
-## 部署到 GKE
+Everything is under `/api`. All routes except login, health and `/public/*` need `Authorization: Bearer <token>`.
 
-见 [`docs/ai-workflow.md`](docs/ai-workflow.md) 末尾的一次性 GCP 配置。大致是：建 Artifact Registry 和 GKE 集群 → 在集群里创建 `rex-crm-secrets` → 在 GitHub 配置变量和密钥 → 推送到 `main` 后 CI 自动构建并部署。
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/auth/login` | Sign in, returns a token |
+| GET / POST | `/auth/me`, `/auth/logout` | Current user / sign out |
+| CRUD | `/contacts`, `/properties`, `/deals` | Contacts, properties, deals (search and filters) |
+| PATCH | `/deals/{id}/stage` | Change stage (saved immediately; history recorded by a queued job) |
+| POST / DELETE | `/deals/{id}/notes` | Add / delete a note |
+| GET | `/pipeline`, `/dashboard` | Board and dashboard (cached in Redis, flushed when deals change) |
+| GET | `/insights` | Analytics marts |
+| GET | `/public/listings`, `/public/listings/{id}` | Public listings (no sign-in, rate limited) |
+| POST | `/public/enquiries` | Website inspection enquiry |
+| POST | `/integrations/leads` | External leads (limited token with `leads:write`) |
+| * | `/ai/*` | AI service: `ask`, `matches/...`, `deals/win-probability` |
 
-## 诚实说明：哪些验证过，哪些没有
+Deal stages: `lead → contacted → inspection → offer → negotiation → won / lost`.
 
-生成这套代码的云端环境访问不了 PHP 包仓库（Packagist），所以：
+## Deployment
 
-- **已验证**：前端 TypeScript 类型检查、生产构建、5 个单元测试；`compose.yaml` 配置校验；K8s 和 CI 的 YAML 语法；全部 PHP 文件语法检查。
-- **未实际运行**：Laravel 后端（没有执行过 `composer install`、迁移和 PHPUnit 测试）、Docker 镜像构建、K8s 部署。后端测试已写好（认证、客户、房源、管道、Worker 任务），但第一次运行时可能暴露小问题，需要你跑一遍并把报错发给我修。
-- 没有 `composer.lock`。第一次 `docker compose up --build` 会解析最新兼容版本；建议之后在 `backend/` 里生成并提交 lock 文件以固定版本。
-- 没有做角色权限细分：所有登录用户可以看和改全部数据（`users.role` 字段已预留）。
+- **Cloud (free tiers)**: the AWS lead pipeline, Databricks and Snowflake are deployed. What runs where and how to remove it: [docs/CLOUD-DEPLOY.md](docs/CLOUD-DEPLOY.md).
+- **GKE**: manifests in [`k8s/`](k8s/); one-time GCP setup in [docs/ai-workflow.md](docs/ai-workflow.md). Not deployed, because it would be billed.
+- **Claude API / Bedrock**: billed per use, off by default.
 
-## 可以继续做的
+## How we work
 
-文件上传（房源图片到 GCS）、邮件/短信提醒（新的队列任务）、按角色的权限策略、Cloud SQL 替换集群内 PostgreSQL、HPA 自动扩缩 Worker。
+Conventions are in [CLAUDE.md](CLAUDE.md) and the workflow in [docs/ai-workflow.md](docs/ai-workflow.md). Work on a branch, open a PR, and a human merges once CI passes. Never push to `main`.
+
+## Known limitations
+
+- No role-based permissions yet: every signed-in user can see and change all data (`users.role` is reserved for this).
+- Listing photo uploads and email / SMS reminders are not built yet.
